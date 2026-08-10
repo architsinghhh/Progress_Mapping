@@ -1,0 +1,91 @@
+{
+  "project": "Greenfield Township",
+  "defaultStageId": "final",
+  "stages": [
+    {
+      "id": "initial",
+      "label": "Initial Stage",
+      "subtitle": "Barren land / site layout",
+      "missionHint": "m0",
+      "blank": false,
+      "orthoYawDeg": 0,
+      "driveFileId": "1uIU0uFybHpNsajleHHRmSxnr20Rsbc-A",
+      "driveUrl": "https://drive.google.com/file/d/1uIU0uFybHpNsajleHHRmSxnr20Rsbc-A/view?usp=sharing",
+      "localPath": "",
+      "ready": true,
+      "notes": "File: INITIAL STAGE.glb"
+    },
+    {
+      "id": "stage1",
+      "label": "Stage 1",
+      "subtitle": "Early construction",
+      "missionHint": "m1",
+      "orthoYawDeg": 0,
+      "driveFileId": "1iqVC2QION6j516lR-s1ssIRsJ9jVWiWZ",
+      "driveUrl": "https://drive.google.com/file/d/1iqVC2QION6j516lR-s1ssIRsJ9jVWiWZ/view?usp=sharing",
+      "localPath": "",
+      "ready": true,
+      "notes": "File: STAGE-1.glb"
+    },
+    {
+      "id": "stage2",
+      "label": "Stage 2",
+      "subtitle": "Structural progress",
+      "missionHint": "m2",
+      "orthoYawDeg": 0,
+      "driveFileId": "1M7nWO9fd0h0XNedItzHS1a897Ak8Tvn7",
+      "driveUrl": "https://drive.google.com/file/d/1M7nWO9fd0h0XNedItzHS1a897Ak8Tvn7/view?usp=sharing",
+      "localPath": "",
+      "ready": true,
+      "notes": "File: STAGE-2.glb"
+    },
+    {
+      "id": "stage3",
+      "label": "Stage 3",
+      "subtitle": "Mid-rise progress",
+      "missionHint": "m3",
+      "orthoYawDeg": 0,
+      "driveFileId": "1wiJ_fSLHWFxZn8HeE55Au_tyDZvWrpcB",
+      "driveUrl": "https://drive.google.com/file/d/1wiJ_fSLHWFxZn8HeE55Au_tyDZvWrpcB/view?usp=sharing",
+      "localPath": "",
+      "ready": true,
+      "notes": "File: STAGE-3.glb"
+    },
+    {
+      "id": "stage4",
+      "label": "Stage 4",
+      "subtitle": "Continued rise",
+      "missionHint": "m4",
+      "orthoYawDeg": 0,
+      "driveFileId": "11PJq4_W8pkrCHDHpe5PHe7sO6wF0H2Ju",
+      "driveUrl": "https://drive.google.com/file/d/11PJq4_W8pkrCHDHpe5PHe7sO6wF0H2Ju/view?usp=sharing",
+      "localPath": "",
+      "ready": true,
+      "notes": "File: STAGE-4.glb"
+    },
+    {
+      "id": "stage5",
+      "label": "Stage 5",
+      "subtitle": "Late construction",
+      "missionHint": "m5",
+      "orthoYawDeg": 0,
+      "driveFileId": "1F9ATVTd7MEHCly2GrUMuLFNDSkHVxio0",
+      "driveUrl": "https://drive.google.com/file/d/1F9ATVTd7MEHCly2GrUMuLFNDSkHVxio0/view?usp=sharing",
+      "localPath": "",
+      "ready": true,
+      "notes": "File: STAGE-5.glb"
+    },
+    {
+      "id": "final",
+      "label": "Stage 6 · Final",
+      "subtitle": "Complete township",
+      "missionHint": "m6",
+      "orthoYawDeg": 0,
+      "driveFileId": "1z-I1ByuXwjy3joWLnClErOG-IgGFvYjn",
+      "driveUrl": "https://drive.google.com/file/d/1z-I1ByuXwjy3joWLnClErOG-IgGFvYjn/view?usp=sharing",
+      "localPath": "",
+      "ready": true,
+      "notes": "File: STAGE-6 FINAL.glb"
+    }
+  ]
+}
