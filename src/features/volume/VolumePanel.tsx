@@ -98,6 +98,10 @@ export function VolumePanel() {
         const fillPlanned = v.fillM3
         const cutDone = Math.round(cutPlanned * factor)
         const fillDone = Math.round(fillPlanned * factor)
+        const rockLeft =
+          v.rockRemainingM3 != null && v.rockRemainingM3 > 0
+            ? Math.round(v.rockRemainingM3 * Math.max(0, 1 - factor))
+            : 0
         const active = v.zoneId === selectedZoneId
         return (
           <motion.button
@@ -110,7 +114,7 @@ export function VolumePanel() {
               void selectZone(v.zoneId)
               setComparisonMode('dem')
               setWorkspaceTab('survey')
-              if (v.rockRemainingM3) setSelectedTerrainId('t1')
+              if (rockLeft > 0) setSelectedTerrainId('t1')
             }}
             className={cn('volume-card text-left', active && 'is-active')}
           >
@@ -124,12 +128,11 @@ export function VolumePanel() {
               <VolumeBar label="Cut" done={cutDone} planned={cutPlanned} tone="cut" />
               <VolumeBar label="Fill" done={fillDone} planned={fillPlanned} tone="fill" />
             </div>
-            {v.rockRemainingM3 != null && (
+            {rockLeft > 0 ? (
               <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-700">
-                Rock remaining ~
-                {Math.round(v.rockRemainingM3 * Math.max(0.35, 1.2 - factor)).toLocaleString()} m³
+                Rock remaining ~{rockLeft.toLocaleString()} m³
               </div>
-            )}
+            ) : null}
           </motion.button>
         )
       })}

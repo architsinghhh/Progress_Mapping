@@ -102,7 +102,7 @@ export function SitePlanPanel() {
       if (!fp || !isFootprintReady(fp)) return []
       const chunks = readyChunks(fp)
       const critical =
-        pulseCriticalPath && (zone.scheduleStatus === 'behind' || zone.id === 'zone_e')
+        pulseCriticalPath && zone.scheduleStatus === 'behind'
       return [
         {
           id: zone.id,

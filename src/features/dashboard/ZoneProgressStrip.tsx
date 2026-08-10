@@ -69,7 +69,7 @@ export function ZoneProgressStrip() {
 
         {scaled.map((zone, i) => {
           const active = zone.id === selectedZoneId
-          const pulse = pulseCriticalPath && (zone.scheduleStatus === 'behind' || zone.id === 'zone_e')
+          const pulse = pulseCriticalPath && zone.scheduleStatus === 'behind'
           return (
             <motion.button
               key={zone.id}

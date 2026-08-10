@@ -8,6 +8,8 @@ export function missionFactor(index: number, total: number): number {
 
 function deriveStatus(onsite: number, planned: number, base: ScheduleStatus): ScheduleStatus {
   if (onsite >= 98) return 'completed'
+  // Finished jobs scrubbed back in time stay on_track — never invent "behind"
+  if (base === 'completed') return onsite >= 95 ? 'completed' : 'on_track'
   const delta = onsite - planned
   if (delta >= -5) return onsite >= 95 ? 'completed' : 'on_track'
   if (base === 'behind' || delta < -5) return 'behind'
