@@ -9,6 +9,8 @@ npm install
 npm run dev
 ```
 
+See **REQUIREMENTS.md** for transferring/cloning to another PC.
+
 ## Architecture
 
 Designed so auth, APIs, and a real database can plug in without rewriting the UI.
@@ -34,6 +36,7 @@ src/
 | Database models | Mirror `entities/types.ts` |
 | Multi-project | `/projects/:projectId` route already stubbed |
 
-## Demo project
+## Demo projects
 
-**Greenfield Township · Sector 7** — residential towers, school, clubhouse, parks, retail plaza. Six survey missions (~18-day cadence) with delay insights and comparison modes (ortho / DEM / contours / 3D / floor-wise).
+- **Greenfield Township** — real Drive GLB stages + ortho pipeline
+- **Riverside Galleria** / **Lakeview Residences** — distinct mock sites with demo 3D massing
