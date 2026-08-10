@@ -69,7 +69,7 @@ function SitePreparationTab() {
       <div className="min-h-[320px]">
         <StageMatrixPanel />
       </div>
-      <div className="min-h-[380px]">
+      <div className="min-h-0">
         <ContoursPanel />
       </div>
       <div className="grid gap-5 lg:grid-cols-2">

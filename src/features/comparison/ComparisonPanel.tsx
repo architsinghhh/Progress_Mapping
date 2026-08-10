@@ -11,6 +11,8 @@ import {
   SocietyOrthoScene,
 } from '@/features/comparison/SurveyVisuals'
 import { OrthoCompareSideBySide, OrthoCompareSlider } from '@/features/comparison/OrthoComparePair'
+import { DemCompareSideBySide, DemCompareSlider } from '@/features/comparison/DemComparePair'
+import { demUrlForMission } from '@/features/comparison/demSource'
 import { modelStageForMission } from '@/entities/constructionStages'
 import { AerialMetaBar } from '@/shared/ui/AerialMetaBar'
 import { formatMonthYear, statusLabel } from '@/shared/lib/utils'
@@ -111,6 +113,14 @@ export function ComparisonPanel() {
   const hasCapture = Boolean(project?.hasSiteCapture)
   const siteKind: SiteKind = project?.type ?? 'township'
   const useMockOrtho = !hasCapture
+  const thenDemSrc = demUrlForMission({
+    missionIndex: compareThenIndex,
+    modelStageId: thenMission?.modelStageId,
+  })
+  const nowDemSrc = demUrlForMission({
+    missionIndex: compareNowIndex,
+    modelStageId: nowMission?.modelStageId,
+  })
 
   const trackRef = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState(false)
@@ -122,6 +132,7 @@ export function ComparisonPanel() {
   }, [comparisonMode, setComparisonMode])
 
   const surveyMode: SurveyMode = comparisonMode === 'dem' ? 'dem' : 'ortho'
+  const useDemStills = hasCapture && surveyMode === 'dem'
 
   const labels = useMemo(() => {
     const thenL = thenMission?.label ?? 'Then'
@@ -283,6 +294,13 @@ export function ComparisonPanel() {
           thenLabel={labels.before}
           nowLabel={labels.after}
         />
+      ) : useDemStills && viewLayout === 'side' ? (
+        <DemCompareSideBySide
+          thenSrc={thenDemSrc}
+          nowSrc={nowDemSrc}
+          thenLabel={labels.before}
+          nowLabel={labels.after}
+        />
       ) : viewLayout === 'side' ? (
         <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-2">
           <ScenePane
@@ -320,6 +338,12 @@ export function ComparisonPanel() {
             <OrthoCompareSlider
               thenStageId={modelStageForMission(compareThenIndex, thenMission?.modelStageId)}
               nowStageId={modelStageForMission(compareNowIndex, nowMission?.modelStageId)}
+              sliderPosition={sliderPosition}
+            />
+          ) : useDemStills ? (
+            <DemCompareSlider
+              thenSrc={thenDemSrc}
+              nowSrc={nowDemSrc}
               sliderPosition={sliderPosition}
             />
           ) : (
@@ -362,7 +386,11 @@ export function ComparisonPanel() {
               {thenMission?.label} → {nowMission?.label}
             </span>
             <span className="rounded-md bg-slate-900/55 px-2.5 py-1.5 backdrop-blur">
-              {hasCapture ? 'Drag slider · any mission pair' : 'Mock ortho · demo site (no GLB)'}
+              {hasCapture
+                ? surveyMode === 'dem'
+                  ? 'DEM stills · drag slider'
+                  : 'Drag slider · any mission pair'
+                : 'Mock ortho · demo site (no GLB)'}
             </span>
           </div>
         </div>
