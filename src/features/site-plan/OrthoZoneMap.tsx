@@ -75,7 +75,7 @@ export function OrthoZoneMap({
     setScale(1)
     setTx(0)
     setTy(0)
-    void captureOrthoTopView(stageId, 1600)
+    void captureOrthoTopView(stageId, 1280)
       .then((url) => {
         if (!alive) return
         setSrc(url)
@@ -318,11 +318,18 @@ export function OrthoZoneMap({
       ) : null}
 
       {!loading && src && interactive ? (
-        <div className="pointer-events-none absolute bottom-2 right-2 z-10 flex gap-1">
+        <div className="pointer-events-none absolute bottom-2 right-2 z-30 flex gap-1">
           <button
             type="button"
             className="pointer-events-auto rounded bg-white/90 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600 shadow hover:bg-white"
-            onClick={resetView}
+            onPointerDown={(e) => {
+              e.stopPropagation()
+            }}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              resetView()
+            }}
           >
             Reset view
           </button>

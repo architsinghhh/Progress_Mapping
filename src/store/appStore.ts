@@ -15,8 +15,10 @@ import type {
   Zone,
 } from '@/entities/types'
 import { projectApi } from '@/services/api/projectApi'
+import { insightUsesSurveyCompare, resolveInsightWorkspaceTab } from '@/shared/lib/insightRouting'
+import { loadWorkRemarks, saveWorkRemarks } from '@/shared/lib/workRemarks'
 
-export type WorkspaceTab = 'overview' | 'siteprep' | 'progress' | 'survey' | 'model'
+export type WorkspaceTab = 'overview' | 'siteprep' | 'progress' | 'survey'
 export type ComparisonMode = 'ortho' | 'dem' | 'floor'
 
 interface AppState {
@@ -55,6 +57,8 @@ interface AppState {
   pulseCriticalPath: boolean
   orthoFullscreen: boolean
   summaryOpen: boolean
+  /** User-authored work remarks keyed by zone/floor/stage (persisted per project). */
+  workRemarks: Record<string, string>
   loadPortfolio: () => Promise<void>
   openProject: (projectId: string) => Promise<void>
   exitToPortfolio: () => void
@@ -75,6 +79,7 @@ interface AppState {
   setPulseCriticalPath: (v: boolean) => void
   setOrthoFullscreen: (v: boolean) => void
   setSummaryOpen: (v: boolean) => void
+  setWorkRemark: (key: string, text: string) => void
 }
 
 const emptyWorkspace = {
@@ -105,6 +110,7 @@ const emptyWorkspace = {
   pulseCriticalPath: false,
   orthoFullscreen: false,
   summaryOpen: false,
+  workRemarks: {} as Record<string, string>,
   ready: false,
 }
 
@@ -187,6 +193,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       pulseCriticalPath: false,
       orthoFullscreen: false,
       summaryOpen: false,
+      workRemarks: loadWorkRemarks(projectId),
       ready: true,
       loading: false,
     })
@@ -249,15 +256,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSelectedTerrainId: (id) => set({ selectedTerrainId: id }),
 
   focusInsight: async (insight) => {
-    const nextMode = insight.comparisonMode
-    const tab =
-      nextMode === 'floor'
-        ? 'progress'
-        : nextMode
-          ? 'survey'
-          : insight.severity === 'critical'
-            ? 'siteprep'
-            : 'overview'
+    const tab = resolveInsightWorkspaceTab(insight)
     set({
       focusedInsightId: insight.id,
       pulseCriticalPath: insight.severity === 'critical',
@@ -265,7 +264,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       highlightPhase: insight.phaseKey ?? null,
       workspaceTab: tab,
     })
-    if (nextMode && nextMode !== 'floor') set({ comparisonMode: nextMode, sliderPosition: 42 })
+    if (insightUsesSurveyCompare(insight) && insight.comparisonMode) {
+      set({ comparisonMode: insight.comparisonMode, sliderPosition: 42 })
+    }
     if (insight.zoneId && insight.zoneId !== get().selectedZoneId) {
       await get().selectZone(insight.zoneId)
     }
@@ -277,4 +278,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   setPulseCriticalPath: (v) => set({ pulseCriticalPath: v }),
   setOrthoFullscreen: (v) => set({ orthoFullscreen: v }),
   setSummaryOpen: (v) => set({ summaryOpen: v }),
+  setWorkRemark: (key, text) => {
+    const projectId = get().activeProjectId
+    const trimmed = text.trim()
+    const prev = get().workRemarks
+    const next = { ...prev }
+    if (!trimmed) delete next[key]
+    else next[key] = trimmed
+    set({ workRemarks: next })
+    if (projectId) saveWorkRemarks(projectId, next)
+  },
 }))

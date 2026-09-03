@@ -5,17 +5,14 @@ import { AppHeader } from '@/app/layout/AppHeader'
 import { useAppStore } from '@/store/appStore'
 import { KpiStrip } from '@/features/dashboard/KpiStrip'
 import { ZoneProgressStrip } from '@/features/dashboard/ZoneProgressStrip'
-import { WorkspaceNav } from '@/features/dashboard/WorkspaceNav'
 import { SitePlanPanel } from '@/features/site-plan/SitePlanPanel'
-import { ProgressTablePanel } from '@/features/progress/ProgressTablePanel'
 import { FloorWisePanel } from '@/features/progress/FloorWisePanel'
 import { ProgressChartPanel } from '@/features/analytics/ProgressChartPanel'
-import { StageGanttPanel, StageMatrixPanel } from '@/features/schedule/StagePanels'
+import { StageGanttPanel } from '@/features/schedule/StagePanels'
 import { ComparisonPanel } from '@/features/comparison/ComparisonPanel'
-import { ContoursPanel } from '@/features/comparison/ContoursPanel'
-import { TimelapseBar } from '@/features/timelapse/TimelapseBar'
+import { SitePrepDemPanel } from '@/features/comparison/SitePrepDemPanel'
+import { SiteLayoutPdfPanel } from '@/features/site-plan/SiteLayoutPdfPanel'
 import { InsightsPanel } from '@/features/insights/InsightsPanel'
-import { ForecastPanel } from '@/features/forecast/ForecastPanel'
 import { VolumePanel } from '@/features/volume/VolumePanel'
 import { ModelComparePanel } from '@/features/model3d/ModelComparePanel'
 import { EvidenceDrawer } from '@/features/evidence/EvidenceDrawer'
@@ -47,17 +44,14 @@ function BootScreen({ label }: { label?: string }) {
   )
 }
 
-function OverviewTab() {
+function HomeTab() {
   return (
     <div className="flex flex-col gap-5">
-      <TimelapseBar />
-      <div className="grid gap-5 xl:grid-cols-12 xl:items-stretch">
-        <div className="min-h-[480px] xl:col-span-7 xl:h-[540px] [&>*]:h-full">
-          <SitePlanPanel />
-        </div>
-        <div className="min-h-[320px] xl:col-span-5 xl:h-[540px] [&>*]:h-full">
-          <InsightsPanel />
-        </div>
+      <div className="min-h-[560px] h-[min(70vh,640px)] [&>*]:h-full">
+        <SitePlanPanel />
+      </div>
+      <div className="min-h-[360px] [&>*]:min-h-[360px]">
+        <InsightsPanel />
       </div>
     </div>
   )
@@ -66,19 +60,16 @@ function OverviewTab() {
 function SitePreparationTab() {
   return (
     <div className="flex flex-col gap-5">
-      <div className="min-h-[320px]">
-        <StageMatrixPanel />
-      </div>
-      <div className="min-h-0">
-        <ContoursPanel />
-      </div>
-      <div className="grid gap-5 lg:grid-cols-2">
-        <div className="min-h-[420px] [&>*]:h-full">
-          <ForecastPanel />
+      <div className="grid gap-5 xl:grid-cols-12 xl:items-stretch">
+        <div className="min-h-[480px] xl:col-span-7 xl:h-[560px] [&>*]:h-full">
+          <SitePrepDemPanel />
         </div>
-        <div className="min-h-[420px] [&>*]:h-full">
+        <div className="min-h-[480px] xl:col-span-5 xl:h-[560px] [&>*]:h-full">
           <VolumePanel />
         </div>
+      </div>
+      <div className="min-h-[560px] [&>*]:min-h-[560px]">
+        <SiteLayoutPdfPanel />
       </div>
     </div>
   )
@@ -87,38 +78,23 @@ function SitePreparationTab() {
 function ProgressTab() {
   return (
     <div className="flex flex-col gap-5">
+      <FloorWisePanel />
+      <div className="min-h-0">
+        <ProgressChartPanel />
+      </div>
       <div className="min-h-[260px]">
         <StageGanttPanel />
       </div>
-      <div className="min-h-[480px]">
-        <FloorWisePanel />
-      </div>
-      <div className="grid gap-5 xl:grid-cols-12 xl:items-stretch">
-        <div className="min-h-[420px] xl:col-span-7 xl:h-[520px] [&>*]:h-full">
-          <ProgressTablePanel />
-        </div>
-        <div className="min-h-[320px] xl:col-span-5 xl:h-[520px] [&>*]:h-full">
-          <ProgressChartPanel />
-        </div>
-      </div>
     </div>
   )
 }
 
-function SurveyTab() {
+function PeriodicMonitoringTab() {
   return (
     <div className="flex flex-col gap-5">
-      <TimelapseBar />
       <div className="min-h-[580px]">
         <ComparisonPanel />
       </div>
-    </div>
-  )
-}
-
-function ModelTab() {
-  return (
-    <div className="flex flex-col gap-5">
       <div className="min-h-[560px]">
         <ModelComparePanel />
       </div>
@@ -168,7 +144,6 @@ export function DashboardPage() {
             <main className="mx-auto flex w-full max-w-[1720px] flex-1 flex-col gap-4 px-4 py-4">
               <KpiStrip />
               <ZoneProgressStrip />
-              <WorkspaceNav />
 
               <AnimatePresence mode="wait">
                 <motion.div
@@ -178,11 +153,10 @@ export function DashboardPage() {
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.25 }}
                 >
-                  {workspaceTab === 'overview' && <OverviewTab />}
+                  {workspaceTab === 'overview' && <HomeTab />}
                   {workspaceTab === 'siteprep' && <SitePreparationTab />}
                   {workspaceTab === 'progress' && <ProgressTab />}
-                  {workspaceTab === 'survey' && <SurveyTab />}
-                  {workspaceTab === 'model' && <ModelTab />}
+                  {workspaceTab === 'survey' && <PeriodicMonitoringTab />}
                 </motion.div>
               </AnimatePresence>
             </main>

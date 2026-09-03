@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Area,
   AreaChart,
@@ -46,10 +47,9 @@ function seriesFor(type: Project['type'] | undefined) {
 export function ProgressChartPanel() {
   const project = useAppStore((s) => s.project)
   const snapshots = useAppStore((s) => s.snapshots)
-  const setHighlightPhase = useAppStore((s) => s.setHighlightPhase)
-  const highlightPhase = useAppStore((s) => s.highlightPhase)
   const activeMissionIndex = useAppStore((s) => s.activeMissionIndex)
   const setMissionIndex = useAppStore((s) => s.setMissionIndex)
+  const [focusKey, setFocusKey] = useState<string | null>(null)
 
   const SERIES = seriesFor(project?.type)
   const cursorDate = snapshots[activeMissionIndex]?.date
@@ -60,55 +60,77 @@ export function ProgressChartPanel() {
         ? 'Society progress curves'
         : 'Component progress curves'
 
+  const visible = focusKey ? SERIES.filter(([key]) => key === focusKey) : SERIES
+
   return (
     <Panel
       title={title}
       accent="blue"
       action={
         <span className="text-[10px] font-medium text-[#94a3b8]">
-          Solid = actual · dashed = planned · click to scrub survey
+          Hover a zone to isolate · solid = actual · dashed = planned
         </span>
       }
-      className="h-full"
-      bodyClassName="flex h-full min-h-0 flex-col p-3 pt-1"
+      className="h-auto"
+      bodyClassName="flex flex-col p-3 pt-1"
     >
-      <div className="mb-2 flex shrink-0 flex-wrap gap-3 px-1 text-[10px]">
-        {SERIES.map(([key, , color, label]) => (
-          <button
-            key={key}
-            type="button"
-            className={cn(
-              'flex items-center gap-1.5 font-semibold transition',
-              highlightPhase === key ? 'text-[#0f172a]' : 'text-[#64748b] hover:text-[#0f172a]',
-              highlightPhase && highlightPhase !== key && 'opacity-40',
-            )}
-            onMouseEnter={() => setHighlightPhase(key)}
-            onMouseLeave={() => setHighlightPhase(null)}
-          >
-            <span className="size-2 rounded-full" style={{ background: color }} />
-            {label}
-          </button>
-        ))}
+      <div className="mb-2 flex shrink-0 flex-wrap gap-2 px-1 text-[10px]">
+        {SERIES.map(([key, , color, label]) => {
+          const dimmed = Boolean(focusKey && focusKey !== key)
+          const active = focusKey === key
+          return (
+            <button
+              key={key}
+              type="button"
+              className={cn(
+                'flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-semibold transition',
+                active
+                  ? 'border-slate-300 bg-slate-900 text-white'
+                  : 'border-transparent text-[#64748b] hover:border-slate-200 hover:bg-slate-50 hover:text-[#0f172a]',
+                dimmed && 'opacity-35',
+              )}
+              onMouseEnter={() => setFocusKey(key)}
+              onMouseLeave={() => setFocusKey(null)}
+              onFocus={() => setFocusKey(key)}
+              onBlur={() => setFocusKey(null)}
+            >
+              <span className="size-2 rounded-full" style={{ background: color }} />
+              {label}
+            </button>
+          )
+        })}
       </div>
-      <div className="min-h-[160px] w-full flex-1">
+      <div className="relative h-[340px] w-full shrink-0 lg:h-[400px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={snapshots}
-            margin={{ top: 8, right: 8, left: -18, bottom: 0 }}
+            margin={{ top: 8, right: 12, left: -12, bottom: 4 }}
             onClick={(state) => {
               const idx = state?.activeTooltipIndex
               if (typeof idx === 'number') setMissionIndex(idx)
             }}
           >
             <defs>
-              <linearGradient id="gRes" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.35} />
-                <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0} />
-              </linearGradient>
+              {SERIES.map(([key, , color]) => (
+                <linearGradient key={`g-${key}`} id={`g-${key}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+                  <stop offset="100%" stopColor={color} stopOpacity={0} />
+                </linearGradient>
+              ))}
             </defs>
             <CartesianGrid stroke="rgba(148,163,184,0.35)" strokeDasharray="3 3" />
-            <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} domain={[0, 100]} />
+            <XAxis
+              dataKey="date"
+              tick={{ fill: '#64748b', fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fill: '#64748b', fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
+              domain={[0, 100]}
+            />
             <Tooltip
               contentStyle={{
                 borderRadius: 10,
@@ -116,29 +138,33 @@ export function ProgressChartPanel() {
                 fontSize: 11,
               }}
             />
-            {cursorDate && (
+            {cursorDate ? (
               <ReferenceLine x={cursorDate} stroke="#0ea5e9" strokeDasharray="4 3" strokeWidth={1.5} />
-            )}
-            {SERIES.map(([, planned, color]) => (
+            ) : null}
+            {visible.map(([key, planned, color]) => (
               <Area
-                key={planned}
+                key={`${key}-planned`}
                 type="monotone"
                 dataKey={planned}
+                name={`${SERIES.find((s) => s[0] === key)?.[3] ?? key} planned`}
                 stroke={color}
                 strokeDasharray="4 3"
                 fill="transparent"
-                strokeWidth={1.4}
-                opacity={0.45}
+                strokeWidth={focusKey ? 2 : 1.4}
+                opacity={focusKey ? 0.7 : 0.45}
+                isAnimationActive={false}
               />
             ))}
-            {SERIES.map(([actual, , color], i) => (
+            {visible.map(([key, , color]) => (
               <Area
-                key={actual}
+                key={`${key}-actual`}
                 type="monotone"
-                dataKey={actual}
+                dataKey={key}
+                name={`${SERIES.find((s) => s[0] === key)?.[3] ?? key} actual`}
                 stroke={color}
-                fill={i === 0 ? 'url(#gRes)' : 'transparent'}
-                strokeWidth={2.2}
+                fill={`url(#g-${key})`}
+                strokeWidth={focusKey ? 3 : 2.2}
+                isAnimationActive={false}
               />
             ))}
           </AreaChart>

@@ -23,7 +23,7 @@ export function InsightsPanel() {
     <Panel
       title="Actionable Insights"
       accent="mint"
-      action={<span className="text-[10px] font-semibold text-[#047857]">Click to focus workspace</span>}
+      action={<span className="text-[10px] font-semibold text-[#047857]">Opens related workspace</span>}
       className="h-full"
       bodyClassName="scrollbar-thin space-y-3 overflow-auto p-3.5"
     >

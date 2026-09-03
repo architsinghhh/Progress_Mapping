@@ -1,20 +1,76 @@
 import { motion } from 'framer-motion'
+import type { Zone } from '@/entities/types'
 import { useAppStore } from '@/store/appStore'
-import { StatusBadge } from '@/shared/ui/StatusBadge'
-import { ProgressBar } from '@/shared/ui/ProgressBar'
 import { ScheduleLegend } from '@/shared/ui/ScheduleLegend'
-import { cn } from '@/shared/lib/utils'
+import { cn, statusLabel } from '@/shared/lib/utils'
 import { missionFactor, scaleZoneForMission } from '@/shared/lib/missionScale'
+import { zoneRemarkKey } from '@/shared/lib/workRemarks'
+
+/** One clear sentence on what work looks like in this zone right now. */
+function zoneWorkSummary(zone: Zone, userRemark?: string): string {
+  if (userRemark?.trim()) return userRemark.trim()
+
+  const { floorsPlanned: planned, floorsComplete: done, overallProgress: pct, scheduleStatus: status } =
+    zone
+
+  if (planned <= 0) {
+    if (status === 'completed') {
+      return zone.remark?.trim() || 'Open works closed — grading and landscaping accepted.'
+    }
+    if (status === 'behind') {
+      return zone.remark?.trim() || 'Open works lagging — landscaping / grading behind plan.'
+    }
+    return pct >= 70
+      ? `Open works well advanced (~${pct}%) — finishing and softscape underway.`
+      : `Open works / grading in progress (~${pct}% onsite).`
+  }
+
+  const next = Math.min(planned, done + 1)
+
+  if (status === 'completed') {
+    return (
+      zone.remark?.trim() ||
+      `G+${planned} closed — all ${planned} floors handed over and verified.`
+    )
+  }
+
+  if (status === 'ahead') {
+    return (
+      zone.remark?.trim() ||
+      `Ahead of plan — ${done}/${planned} floors closed; Floor ${next} moving early.`
+    )
+  }
+
+  if (status === 'behind') {
+    return (
+      zone.remark?.trim() ||
+      `Behind plan — ${done}/${planned} floors closed; Floor ${next} needs catch-up.`
+    )
+  }
+
+  if (done >= planned) {
+    return `Structure complete (G+${planned}) · finishing / handover checks at ${pct}%.`
+  }
+
+  if (done === 0) {
+    return pct < 25
+      ? `Early works — plinth / base for G+${planned}; ~${pct}% onsite.`
+      : `Rising from base — Floor 1 of ${planned} in play · ${pct}% zone.`
+  }
+
+  return `Floor ${next} of ${planned} active · ${done} floors closed · ${pct}% zone complete.`
+}
 
 export function ZoneProgressStrip() {
   const zones = useAppStore((s) => s.zones)
   const selectedZoneId = useAppStore((s) => s.selectedZoneId)
   const selectZone = useAppStore((s) => s.selectZone)
-  const project = useAppStore((s) => s.project)
+  const setWorkspaceTab = useAppStore((s) => s.setWorkspaceTab)
   const missions = useAppStore((s) => s.missions)
   const activeMissionIndex = useAppStore((s) => s.activeMissionIndex)
   const whatIfActive = useAppStore((s) => s.whatIfActive)
   const pulseCriticalPath = useAppStore((s) => s.pulseCriticalPath)
+  const workRemarks = useAppStore((s) => s.workRemarks)
 
   const factor = missionFactor(activeMissionIndex, missions.length)
   const scaled = zones.map((z) => {
@@ -32,77 +88,67 @@ export function ZoneProgressStrip() {
     return s
   })
 
-  const avg =
-    scaled.length === 0
-      ? 0
-      : Math.round(scaled.reduce((s, z) => s + z.overallProgress, 0) / scaled.length)
+  const openZone = (id: string) => {
+    void selectZone(id)
+    setWorkspaceTab('progress')
+  }
 
   return (
     <div className="space-y-2">
       <ScheduleLegend />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-        <motion.div
-          className="zone-card zone-card--site"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <div className="text-[10px] font-bold tracking-[0.14em] text-[#94a3b8] uppercase">
-            Site progress
-          </div>
-          <div className="mt-1 flex items-end gap-2">
-            <span className="font-display text-3xl font-extrabold tracking-tight text-[#0f172a]">
-              {avg}%
-            </span>
-            <span className="mb-1 text-xs text-[#64748b]">overall</span>
-          </div>
-          <div className="mt-1 text-[11px] text-[#64748b]">
-            {project?.type ?? 'project'} · {missions[activeMissionIndex]?.label ?? 'pilot'}
-          </div>
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-200/80">
-            <motion.div
-              className="h-full rounded-full bg-gradient-to-r from-sky-400 to-indigo-500"
-              animate={{ width: `${avg}%` }}
-              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            />
-          </div>
-        </motion.div>
-
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {scaled.map((zone, i) => {
           const active = zone.id === selectedZoneId
           const pulse = pulseCriticalPath && zone.scheduleStatus === 'behind'
+          const summary = zoneWorkSummary(zone, workRemarks[zoneRemarkKey(zone.id)])
           return (
             <motion.button
               key={zone.id}
               type="button"
-              onClick={() => void selectZone(zone.id)}
+              onClick={() => openZone(zone.id)}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.04 * (i + 1) }}
+              transition={{ delay: 0.04 * i }}
               data-status={zone.scheduleStatus}
-              className={cn('zone-card', active && 'is-active', pulse && 'zone-card--pulse')}
+              title="Open floor-wise progress for this zone"
+              className={cn('zone-card zone-card--compact', active && 'is-active', pulse && 'zone-card--pulse')}
               style={{ ['--card-accent' as string]: zone.color }}
             >
-              <div className="mb-1.5 flex items-center justify-between gap-2">
-                <span className="font-display text-sm font-bold text-[#0f172a]">
-                  <span style={{ color: zone.color }}>{zone.code}</span>
-                  <span className="text-[#94a3b8]"> · </span>
-                  {zone.name}
-                </span>
+              <div className="zone-card__rest">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-display text-sm font-bold text-[#0f172a]">
+                    <span style={{ color: zone.color }}>{zone.code}</span>
+                    <span className="text-[#94a3b8]"> · </span>
+                    {zone.name}
+                  </span>
+                  <span className="font-display text-lg font-extrabold tabular-nums text-[#0f172a]">
+                    {zone.overallProgress}%
+                  </span>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <span
+                    className={cn(
+                      'rounded-md px-1.5 py-0.5 text-[9px] font-bold tracking-wide uppercase',
+                      zone.scheduleStatus === 'completed' && 'bg-slate-100 text-slate-700',
+                      zone.scheduleStatus === 'on_track' && 'bg-blue-50 text-blue-700',
+                      zone.scheduleStatus === 'ahead' && 'bg-emerald-50 text-emerald-700',
+                      zone.scheduleStatus === 'behind' && 'bg-red-50 text-red-700',
+                    )}
+                  >
+                    {statusLabel(zone.scheduleStatus)}
+                  </span>
+                  <span className="text-[10px] font-medium text-[#94a3b8]">
+                    {zone.floorsPlanned > 0
+                      ? `G+${zone.floorsPlanned}`
+                      : 'Open works'}
+                  </span>
+                </div>
+                <p className="zone-card__hint">Hover for condition · click for floors</p>
               </div>
-              <StatusBadge status={zone.scheduleStatus} remark={zone.remark} />
-              <ProgressBar
-                value={zone.overallProgress}
-                status={zone.scheduleStatus}
-                className="mt-2.5"
-                showLabel={false}
-              />
-              <div className="mt-1.5 flex justify-between text-[10px] font-medium text-[#64748b]">
-                <span>{zone.overallProgress}% done</span>
-                <span>
-                  {zone.floorsPlanned > 0
-                    ? `${zone.floorsComplete}/${zone.floorsPlanned} fl`
-                    : 'No floors'}
-                </span>
+
+              <div className="zone-card__hover" aria-hidden>
+                <p className="zone-card__hover-label">Work condition</p>
+                <p className="zone-card__hover-summary">{summary}</p>
               </div>
             </motion.button>
           )

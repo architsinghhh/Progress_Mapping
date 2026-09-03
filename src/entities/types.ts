@@ -1,6 +1,6 @@
 /** Domain contracts — map 1:1 to future API / DB schemas */
 
-export type ScheduleStatus = 'on_track' | 'behind' | 'completed'
+export type ScheduleStatus = 'on_track' | 'ahead' | 'behind' | 'completed'
 
 export type PhaseKey =
   | 'excavation'
@@ -155,6 +155,7 @@ export interface Insight {
   body: string
   zoneId?: string
   action?: string
+  /** When set, focuses Ortho / DEM / floor-wise evidence in the matching workspace. */
   comparisonMode?: 'ortho' | 'dem' | 'floor'
   terrainId?: string
   phaseKey?: string

@@ -5,19 +5,28 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs)
 }
 
-/** Site-wide schedule colors — Completed blue · On Schedule teal · Behind red */
+/**
+ * App-wide schedule colors (do not invent local alternatives):
+ * Behind / delay → red
+ * On time (in progress) → blue
+ * Ahead of schedule → green
+ * Completed → slate (done, not an in-progress state)
+ */
 export const SCHEDULE_COLORS: Record<ScheduleStatus, string> = {
-  completed: '#2563eb',
-  on_track: '#16a34a',
   behind: '#dc2626',
+  on_track: '#2563eb',
+  ahead: '#16a34a',
+  completed: '#475569',
 }
 
 export function statusLabel(status: ScheduleStatus): string {
   switch (status) {
-    case 'on_track':
-      return 'On Schedule'
     case 'behind':
       return 'Behind Schedule'
+    case 'on_track':
+      return 'On Schedule'
+    case 'ahead':
+      return 'Ahead of Schedule'
     case 'completed':
       return 'Completed'
   }
@@ -29,12 +38,14 @@ export function statusColor(status: ScheduleStatus): string {
 
 export function statusTone(status: ScheduleStatus): string {
   switch (status) {
-    case 'on_track':
-      return 'text-green-800 bg-green-500/10 border-green-500/30'
     case 'behind':
       return 'text-red-700 bg-red-500/10 border-red-500/30'
-    case 'completed':
+    case 'on_track':
       return 'text-blue-700 bg-blue-500/10 border-blue-500/30'
+    case 'ahead':
+      return 'text-green-800 bg-green-500/10 border-green-500/30'
+    case 'completed':
+      return 'text-slate-700 bg-slate-500/10 border-slate-500/30'
   }
 }
 

@@ -18,6 +18,8 @@ import {
   type ZoneFootprint,
 } from '@/features/site-plan/zoneFootprints'
 import { ZoneTraceEditor } from '@/features/site-plan/ZoneTraceEditor'
+import { WorkRemarkField } from '@/shared/ui/WorkRemarkField'
+import { zoneRemarkKey } from '@/shared/lib/workRemarks'
 
 function useFootprints(): ZoneFootprint[] {
   const [fps, setFps] = useState(() => getActiveFootprints())
@@ -167,15 +169,16 @@ export function SitePlanPanel() {
         </div>
       }
       className="h-full"
-      bodyClassName="flex h-full min-h-0 flex-col gap-3 p-3"
+      bodyClassName="relative flex h-full min-h-0 flex-col gap-0 p-3"
     >
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_340px]">
       <div
         className={cn(
-          'viz-frame site-plan-frame relative mx-auto aspect-square w-full max-h-[min(100%,560px)] min-h-[280px] overflow-hidden',
+          'viz-frame site-plan-frame relative min-h-[420px] w-full overflow-hidden lg:min-h-0 lg:h-full',
           pulseCriticalPath && 'viz-frame--pulse',
         )}
       >
-        {mapBody}
+        <div className="absolute inset-0">{mapBody}</div>
 
         <div className="viz-caption">
           <span>
@@ -211,14 +214,14 @@ export function SitePlanPanel() {
         </AnimatePresence>
       </div>
 
-      <div className="shrink-0">
-        <div className="mb-1.5 flex items-center justify-between gap-2">
+      <div className="flex min-h-0 w-full flex-col overflow-hidden">
+        <div className="mb-2 flex items-center justify-between gap-2">
           <p className="text-[10px] font-bold tracking-wide text-slate-400 uppercase">
             {componentLabel}
           </p>
           <div className="flex items-center gap-2">
             {selectedZone && (
-              <span className="text-[10px] font-semibold text-slate-500">
+              <span className="hidden text-[10px] font-semibold text-slate-500 sm:inline">
                 Selected · {selectedZone.name}
               </span>
             )}
@@ -235,48 +238,71 @@ export function SitePlanPanel() {
             )}
           </div>
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="scrollbar-thin flex min-h-0 flex-1 flex-col gap-1.5 overflow-auto pr-0.5">
           {scaledZones.map((zone) => {
             const active = zone.id === selectedZoneId
             const fp = fpFor(zone.id)
             const ready = hasCapture && fp ? isFootprintReady(fp) : false
             const pads = hasCapture && fp ? readyChunks(fp).length : 0
             return (
-              <button
-                key={zone.id}
-                type="button"
-                onClick={() => {
-                  if (!showZones) toggleLayer('zoning')
-                  void selectZone(zone.id)
-                }}
-                className={cn(
-                  'inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition',
-                  active
-                    ? 'border-slate-300 bg-white shadow-sm'
-                    : 'border-transparent bg-slate-50/90 hover:border-slate-200 hover:bg-white',
-                )}
-                style={active ? { boxShadow: `inset 3px 0 0 ${zone.color}` } : undefined}
-              >
-                <span
-                  className="flex size-6 items-center justify-center rounded-md text-[10px] font-extrabold text-white"
-                  style={{ background: zone.color }}
+              <div key={zone.id} className="flex flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!showZones) toggleLayer('zoning')
+                    void selectZone(zone.id)
+                  }}
+                  className={cn(
+                    'flex w-full items-start gap-2.5 rounded-xl border px-2.5 py-2 text-left transition',
+                    active
+                      ? 'border-slate-300 bg-white shadow-sm'
+                      : 'border-transparent bg-slate-50/90 hover:border-slate-200 hover:bg-white',
+                  )}
+                  style={active ? { boxShadow: `inset 3px 0 0 ${zone.color}` } : undefined}
                 >
-                  {zone.code}
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-[11px] font-bold text-slate-800">
-                    {zone.name}
+                  <span
+                    className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md text-[10px] font-extrabold text-white"
+                    style={{ background: zone.color }}
+                  >
+                    {zone.code}
                   </span>
-                  <span className="block text-[9px] font-medium text-slate-400">
-                    {zone.overallProgress}%
-                    {ready ? ` · ${pads} pad${pads === 1 ? '' : 's'}` : ''}
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-baseline justify-between gap-2">
+                      <span className="truncate text-[12px] font-bold text-slate-800">{zone.name}</span>
+                      <span className="shrink-0 text-[10px] font-semibold text-slate-400">
+                        {zone.overallProgress}%
+                      </span>
+                    </span>
+                    <span className="mt-1 block">
+                      <StatusBadge status={zone.scheduleStatus} compact />
+                    </span>
+                    {ready ? (
+                      <span className="mt-0.5 block text-[9px] font-medium text-slate-400">
+                        {pads} pad{pads === 1 ? '' : 's'} on map
+                      </span>
+                    ) : null}
                   </span>
-                </span>
-                <StatusBadge status={zone.scheduleStatus} remark={zone.remark} />
-              </button>
+                </button>
+                {active ? (
+                  <WorkRemarkField
+                    remarkKey={zoneRemarkKey(zone.id)}
+                    fallback={zone.remark}
+                    placeholder="Add zone remark…"
+                    compact
+                    tone={
+                      zone.scheduleStatus === 'behind'
+                        ? 'behind'
+                        : zone.scheduleStatus === 'ahead'
+                          ? 'ahead'
+                          : 'default'
+                    }
+                  />
+                ) : null}
+              </div>
             )
           })}
         </div>
+      </div>
       </div>
 
       {hasCapture && (

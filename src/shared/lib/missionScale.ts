@@ -6,14 +6,30 @@ export function missionFactor(index: number, total: number): number {
   return Math.min(1, Math.max(0, index / (total - 1)))
 }
 
+/**
+ * Derive schedule status from onsite vs plan:
+ * ahead (>5 pts), on time (±5), behind (<-5), completed (≥98%).
+ */
 function deriveStatus(onsite: number, planned: number, base: ScheduleStatus): ScheduleStatus {
   if (onsite >= 98) return 'completed'
-  // Finished jobs scrubbed back in time stay on_track — never invent "behind"
-  if (base === 'completed') return onsite >= 95 ? 'completed' : 'on_track'
+  // Finished jobs scrubbed back in time — never invent "behind"
+  if (base === 'completed') {
+    if (onsite >= 95) return 'completed'
+    const delta = onsite - planned
+    if (delta > 5) return 'ahead'
+    return 'on_track'
+  }
+  if (base === 'behind') {
+    const delta = onsite - planned
+    // Recovery can lift behind → on time / ahead
+    if (delta > 5) return 'ahead'
+    if (delta >= -5) return 'on_track'
+    return 'behind'
+  }
   const delta = onsite - planned
+  if (delta > 5) return 'ahead'
   if (delta >= -5) return onsite >= 95 ? 'completed' : 'on_track'
-  if (base === 'behind' || delta < -5) return 'behind'
-  return 'on_track'
+  return 'behind'
 }
 
 /** Scale final progress rows back to a historical mission moment */
@@ -46,15 +62,35 @@ export function scaleZoneForMission(zone: Zone, factor: number): Zone {
     0,
     Math.min(zone.floorsPlanned, Math.round(zone.floorsComplete * ease)),
   )
-  let scheduleStatus = zone.scheduleStatus
-  if (zone.scheduleStatus === 'completed' && overallProgress >= 98) {
+
+  // Expected plan curve for this scrub moment (slightly ahead of eased progress baseline)
+  const plannedAtMission = Math.round(zone.overallProgress * Math.min(1, ease + 0.06))
+  let scheduleStatus: ScheduleStatus = zone.scheduleStatus
+
+  if (overallProgress >= 98 && zone.scheduleStatus === 'completed') {
     scheduleStatus = 'completed'
-  } else if (factor < 0.35) {
-    scheduleStatus = 'on_track'
-  } else if (zone.scheduleStatus === 'behind') {
-    scheduleStatus = 'behind'
   } else if (zone.scheduleStatus === 'completed' && overallProgress < 98) {
-    scheduleStatus = 'on_track'
+    const delta = overallProgress - plannedAtMission
+    scheduleStatus = delta > 5 ? 'ahead' : 'on_track'
+  } else if (zone.scheduleStatus === 'behind') {
+    const delta = overallProgress - plannedAtMission
+    if (factor < 0.25) scheduleStatus = 'on_track'
+    else if (delta > 5) scheduleStatus = 'ahead'
+    else if (delta >= -5) scheduleStatus = 'on_track'
+    else scheduleStatus = 'behind'
+  } else if (zone.scheduleStatus === 'ahead') {
+    const delta = overallProgress - plannedAtMission
+    if (overallProgress >= 98) scheduleStatus = 'completed'
+    else if (delta > 5) scheduleStatus = 'ahead'
+    else if (delta >= -5) scheduleStatus = 'on_track'
+    else scheduleStatus = 'behind'
+  } else {
+    // on_track base
+    const delta = overallProgress - plannedAtMission
+    if (overallProgress >= 98) scheduleStatus = 'completed'
+    else if (delta > 5) scheduleStatus = 'ahead'
+    else if (delta >= -5) scheduleStatus = 'on_track'
+    else scheduleStatus = 'behind'
   }
 
   return {

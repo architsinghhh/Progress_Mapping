@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Columns2, SplitSquareHorizontal } from 'lucide-react'
 import { Panel } from '@/shared/ui/Panel'
 import { useAppStore } from '@/store/appStore'
@@ -15,7 +15,7 @@ import { DemCompareSideBySide, DemCompareSlider } from '@/features/comparison/De
 import { demUrlForMission } from '@/features/comparison/demSource'
 import { modelStageForMission } from '@/entities/constructionStages'
 import { AerialMetaBar } from '@/shared/ui/AerialMetaBar'
-import { formatMonthYear, statusLabel } from '@/shared/lib/utils'
+import { formatMonthYear } from '@/shared/lib/utils'
 import type { Project } from '@/entities/types'
 
 type SurveyMode = Exclude<ComparisonMode, 'floor'>
@@ -98,14 +98,11 @@ export function ComparisonPanel() {
   const setComparisonMode = useAppStore((s) => s.setComparisonMode)
   const sliderPosition = useAppStore((s) => s.sliderPosition)
   const setSliderPosition = useAppStore((s) => s.setSliderPosition)
-  const zones = useAppStore((s) => s.zones)
-  const selectedZoneId = useAppStore((s) => s.selectedZoneId)
   const missions = useAppStore((s) => s.missions)
   const compareThenIndex = useAppStore((s) => s.compareThenIndex)
   const compareNowIndex = useAppStore((s) => s.compareNowIndex)
   const setCompareThenIndex = useAppStore((s) => s.setCompareThenIndex)
   const setCompareNowIndex = useAppStore((s) => s.setCompareNowIndex)
-  const zone = zones.find((z) => z.id === selectedZoneId)
   const thenMission = missions[compareThenIndex]
   const nowMission = missions[compareNowIndex]
   const deltaDays =
@@ -123,7 +120,7 @@ export function ComparisonPanel() {
   })
 
   const trackRef = useRef<HTMLDivElement>(null)
-  const [dragging, setDragging] = useState(false)
+  const draggingRef = useRef(false)
   const [viewLayout, setViewLayout] = useState<ViewLayout>('slider')
 
   // Floor-wise lives on Progress now — bounce stale mode back to ortho
@@ -141,12 +138,16 @@ export function ComparisonPanel() {
     return { before: `Ortho | ${thenL}`, after: `Ortho | ${nowL}` }
   }, [surveyMode, thenMission?.label, nowMission?.label])
 
-  const onPointer = (e: ReactPointerEvent) => {
+  const moveSliderTo = (clientX: number) => {
     const el = trackRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
-    const pct = ((e.clientX - rect.left) / rect.width) * 100
+    const pct = ((clientX - rect.left) / rect.width) * 100
     setSliderPosition(Math.min(98, Math.max(2, pct)))
+  }
+
+  const endSliderDrag = () => {
+    draggingRef.current = false
   }
 
   const changeCues =
@@ -221,19 +222,7 @@ export function ComparisonPanel() {
     >
       <div className="flex shrink-0 flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-xs text-slate-500">
-            <span className="font-display font-bold text-slate-800">{zone?.name ?? 'Zone'}</span>
-            <span className="mx-1.5">|</span>
-            <span>
-              {zone?.overallProgress ?? 0}% onsite · {zone ? statusLabel(zone.scheduleStatus) : '—'}
-              {zone?.scheduleStatus === 'behind' && (
-                <span className="ml-1.5 font-medium text-red-600">
-                  · {zone.remark?.trim() || 'Behind schedule — check forecast'}
-                </span>
-              )}
-            </span>
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <label className="text-[10px] font-bold tracking-wide text-slate-400 uppercase">
               Then
               <select
@@ -323,16 +312,20 @@ export function ComparisonPanel() {
       ) : (
         <div
           ref={trackRef}
-          className="compare-frame min-h-[480px] flex-1"
+          className="compare-frame min-h-[480px] flex-1 touch-none"
           onPointerDown={(e) => {
-            setDragging(true)
-            ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
-            onPointer(e)
+            if (e.button !== 0) return
+            draggingRef.current = true
+            e.currentTarget.setPointerCapture(e.pointerId)
+            moveSliderTo(e.clientX)
           }}
           onPointerMove={(e) => {
-            if (dragging || e.buttons === 1) onPointer(e)
+            if (!draggingRef.current) return
+            moveSliderTo(e.clientX)
           }}
-          onPointerUp={() => setDragging(false)}
+          onPointerUp={endSliderDrag}
+          onPointerCancel={endSliderDrag}
+          onLostPointerCapture={endSliderDrag}
         >
           {surveyMode === 'ortho' && hasCapture ? (
             <OrthoCompareSlider

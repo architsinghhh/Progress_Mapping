@@ -7,7 +7,7 @@ interface ProgressBarProps {
   planned?: number
   /** Zone accent — ignored when `status` is set (schedule color wins). */
   color?: string
-  /** Fill bar with schedule palette (Completed / On Schedule / Behind). */
+  /** Fill bar with schedule palette (Behind / On time / Ahead / Completed). */
   status?: ScheduleStatus
   className?: string
   showLabel?: boolean

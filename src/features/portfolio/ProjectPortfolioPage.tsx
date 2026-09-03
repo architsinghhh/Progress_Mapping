@@ -181,8 +181,9 @@ export function ProjectPortfolioPage() {
               {(
                 [
                   ['all', 'All'],
-                  ['on_track', 'On Schedule'],
                   ['behind', 'Behind Schedule'],
+                  ['on_track', 'On Schedule'],
+                  ['ahead', 'Ahead of Schedule'],
                   ['completed', 'Completed'],
                 ] as const
               ).map(([id, label]) => (

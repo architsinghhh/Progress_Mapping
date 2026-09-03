@@ -49,6 +49,49 @@ async function loadGlbBuffer(url: string): Promise<ArrayBuffer> {
   return buf
 }
 
+const ORTHO_IDB = 'pm-ortho-stills'
+const ORTHO_STORE = 'stills'
+
+function idbOpen(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(ORTHO_IDB, 1)
+    req.onupgradeneeded = () => {
+      const db = req.result
+      if (!db.objectStoreNames.contains(ORTHO_STORE)) db.createObjectStore(ORTHO_STORE)
+    }
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error)
+  })
+}
+
+async function readPersistedOrtho(key: string): Promise<string | null> {
+  try {
+    const db = await idbOpen()
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(ORTHO_STORE, 'readonly')
+      const req = tx.objectStore(ORTHO_STORE).get(key)
+      req.onsuccess = () => resolve((req.result as string | undefined) ?? null)
+      req.onerror = () => reject(req.error)
+    })
+  } catch {
+    return null
+  }
+}
+
+async function writePersistedOrtho(key: string, dataUrl: string): Promise<void> {
+  try {
+    const db = await idbOpen()
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(ORTHO_STORE, 'readwrite')
+      tx.objectStore(ORTHO_STORE).put(dataUrl, key)
+      tx.oncomplete = () => resolve()
+      tx.onerror = () => reject(tx.error)
+    })
+  } catch {
+    /* quota / private mode — ignore */
+  }
+}
+
 function disposeObject3D(root: THREE.Object3D) {
   root.traverse((child) => {
     const mesh = child as THREE.Mesh
@@ -142,7 +185,7 @@ function setNadirCamera(cam: THREE.OrthographicCamera, center: THREE.Vector3, di
 async function captureOrthoTopViewUnqueued(stageId: string, size: number): Promise<string> {
   const yaws = await loadYawMap()
   const yawDeg = yaws.get(stageId) ?? 0
-  const cacheKey = `${ORTHO_CACHE_VER}:${stageId}:${yawDeg}`
+  const cacheKey = `${ORTHO_CACHE_VER}:${stageId}:${yawDeg}:${size}`
   const cached = orthoImageCache.get(cacheKey)
   if (cached) return cached
 
@@ -204,8 +247,9 @@ async function captureOrthoTopViewUnqueued(stageId: string, size: number): Promi
   cam.updateProjectionMatrix()
 
   renderer.render(scene, cam)
-  const dataUrl = renderer.domElement.toDataURL('image/jpeg', 0.92)
-  orthoImageCache.set(cacheKey, dataUrl)
+  const dataUrl = renderer.domElement.toDataURL('image/jpeg', 0.85)
+  // Caller persists — avoid double-write here
+  // orthoImageCache set by captureOrthoTopView
 
   scene.remove(root)
   disposeObject3D(root)
@@ -223,7 +267,7 @@ async function captureOrthoTopViewUnqueued(stageId: string, size: number): Promi
 export async function captureOrthoTopView(stageId: string, size = 1280): Promise<string> {
   const yaws = await loadYawMap()
   const yawDeg = yaws.get(stageId) ?? 0
-  const cacheKey = `${ORTHO_CACHE_VER}:${stageId}:${yawDeg}`
+  const cacheKey = `${ORTHO_CACHE_VER}:${stageId}:${yawDeg}:${size}`
   const cached = orthoImageCache.get(cacheKey)
   if (cached) return cached
 
@@ -235,18 +279,28 @@ export async function captureOrthoTopView(stageId: string, size = 1280): Promise
       .catch(() => {})
       .then(async () => {
         try {
-          // Re-check cache after waiting in queue
           const hit = orthoImageCache.get(cacheKey)
           if (hit) {
             resolve(hit)
             return
           }
+          const disk = await readPersistedOrtho(cacheKey)
+          if (disk) {
+            orthoImageCache.set(cacheKey, disk)
+            resolve(disk)
+            return
+          }
           try {
-            resolve(await captureOrthoTopViewUnqueued(stageId, size))
+            const url = await captureOrthoTopViewUnqueued(stageId, size)
+            orthoImageCache.set(cacheKey, url)
+            void writePersistedOrtho(cacheKey, url)
+            resolve(url)
           } catch {
-            // One retry — first attempt sometimes fails after a prior renderer dispose
             await new Promise((r) => setTimeout(r, 120))
-            resolve(await captureOrthoTopViewUnqueued(stageId, size))
+            const url = await captureOrthoTopViewUnqueued(stageId, size)
+            orthoImageCache.set(cacheKey, url)
+            void writePersistedOrtho(cacheKey, url)
+            resolve(url)
           }
         } catch (e) {
           reject(e)
