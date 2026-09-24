@@ -11,6 +11,7 @@ export function missionFactor(index: number, total: number): number {
  * ahead (>5 pts), on time (±5), behind (<-5), completed (≥98%).
  */
 function deriveStatus(onsite: number, planned: number, base: ScheduleStatus): ScheduleStatus {
+  if (base === 'not_started' && onsite <= 0) return 'not_started'
   if (onsite >= 98) return 'completed'
   // Finished jobs scrubbed back in time — never invent "behind"
   if (base === 'completed') {
@@ -28,7 +29,7 @@ function deriveStatus(onsite: number, planned: number, base: ScheduleStatus): Sc
   }
   const delta = onsite - planned
   if (delta > 5) return 'ahead'
-  if (delta >= -5) return onsite >= 95 ? 'completed' : 'on_track'
+  if (delta >= -5) return onsite >= 95 ? 'completed' : onsite <= 0 ? 'not_started' : 'on_track'
   return 'behind'
 }
 
@@ -67,7 +68,9 @@ export function scaleZoneForMission(zone: Zone, factor: number): Zone {
   const plannedAtMission = Math.round(zone.overallProgress * Math.min(1, ease + 0.06))
   let scheduleStatus: ScheduleStatus = zone.scheduleStatus
 
-  if (overallProgress >= 98 && zone.scheduleStatus === 'completed') {
+  if (zone.scheduleStatus === 'not_started' && overallProgress <= 0) {
+    scheduleStatus = 'not_started'
+  } else if (overallProgress >= 98 && zone.scheduleStatus === 'completed') {
     scheduleStatus = 'completed'
   } else if (zone.scheduleStatus === 'completed' && overallProgress < 98) {
     const delta = overallProgress - plannedAtMission
@@ -85,9 +88,10 @@ export function scaleZoneForMission(zone: Zone, factor: number): Zone {
     else if (delta >= -5) scheduleStatus = 'on_track'
     else scheduleStatus = 'behind'
   } else {
-    // on_track base
+    // on_track / not_started with some progress
     const delta = overallProgress - plannedAtMission
     if (overallProgress >= 98) scheduleStatus = 'completed'
+    else if (overallProgress <= 0) scheduleStatus = 'not_started'
     else if (delta > 5) scheduleStatus = 'ahead'
     else if (delta >= -5) scheduleStatus = 'on_track'
     else scheduleStatus = 'behind'

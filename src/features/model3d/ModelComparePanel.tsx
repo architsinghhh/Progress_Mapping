@@ -10,6 +10,8 @@ import {
   type ModelStageEntry,
 } from '@/features/model3d/modelSource'
 import type { DemoSiteKind } from '@/features/model3d/DemoSiteModelCanvas'
+import { SkpModelViewer } from '@/features/model3d/SkpModelViewer'
+import { skpAssetsForProject } from '@/features/model3d/skpToGlb'
 import { cn } from '@/shared/lib/utils'
 import { useAppStore } from '@/store/appStore'
 
@@ -140,6 +142,15 @@ export function ModelComparePanel() {
   }
 
   if (!hasCapture) {
+    const skpAssets = skpAssetsForProject(project?.id)
+    if (skpAssets.length > 0 && project?.id) {
+      return (
+        <SkpModelViewer
+          projectId={project.id}
+          siteName={project.name}
+        />
+      )
+    }
     return (
       <DemoModelViewer
         kind={demoKindFor(project?.type)}

@@ -11,12 +11,14 @@ export function cn(...inputs: ClassValue[]) {
  * On time (in progress) → blue
  * Ahead of schedule → green
  * Completed → slate (done, not an in-progress state)
+ * Not started → muted slate
  */
 export const SCHEDULE_COLORS: Record<ScheduleStatus, string> = {
   behind: '#dc2626',
   on_track: '#2563eb',
   ahead: '#16a34a',
   completed: '#475569',
+  not_started: '#94a3b8',
 }
 
 export function statusLabel(status: ScheduleStatus): string {
@@ -29,6 +31,8 @@ export function statusLabel(status: ScheduleStatus): string {
       return 'Ahead of Schedule'
     case 'completed':
       return 'Completed'
+    case 'not_started':
+      return 'Not Started'
   }
 }
 
@@ -46,6 +50,8 @@ export function statusTone(status: ScheduleStatus): string {
       return 'text-green-800 bg-green-500/10 border-green-500/30'
     case 'completed':
       return 'text-slate-700 bg-slate-500/10 border-slate-500/30'
+    case 'not_started':
+      return 'text-slate-500 bg-slate-100 border-slate-300'
   }
 }
 

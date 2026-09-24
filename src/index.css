@@ -21,6 +21,7 @@
   --color-sched-on-track: #2563eb;
   --color-sched-ahead: #16a34a;
   --color-sched-completed: #475569;
+  --color-sched-not-started: #94a3b8;
 }
 
 * {
@@ -1773,6 +1774,12 @@ body {
   border-color: rgba(71, 85, 105, 0.32);
 }
 
+.status-not_started {
+  color: #64748b;
+  background: rgba(148, 163, 184, 0.14);
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
 .schedule-legend {
   display: flex;
   flex-wrap: wrap;
@@ -1810,6 +1817,10 @@ body {
 
 .schedule-legend__swatch--behind {
   background: var(--color-sched-behind);
+}
+
+.schedule-legend__swatch--not_started {
+  background: #94a3b8;
 }
 
 /* ── Progress bar ──────────────────────────────────────────────────────────── */

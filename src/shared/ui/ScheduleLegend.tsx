@@ -1,8 +1,8 @@
 import type { ScheduleStatus } from '@/entities/types'
 import { statusLabel } from '@/shared/lib/utils'
 
-/** Legend order matches the standard: delay → on time → ahead → done */
-const ITEMS: ScheduleStatus[] = ['behind', 'on_track', 'ahead', 'completed']
+/** Legend order matches the standard: delay → on time → ahead → done → not started */
+const ITEMS: ScheduleStatus[] = ['behind', 'on_track', 'ahead', 'completed', 'not_started']
 
 /** Compact key for schedule colors used across the workspace */
 export function ScheduleLegend({ className }: { className?: string }) {

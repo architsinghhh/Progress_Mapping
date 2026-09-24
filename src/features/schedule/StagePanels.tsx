@@ -2,6 +2,7 @@ import { Panel } from '@/shared/ui/Panel'
 import { CONSTRUCTION_STAGES } from '@/entities/constructionStages'
 import { cn } from '@/shared/lib/utils'
 import { useAppStore } from '@/store/appStore'
+import { SAGE_GANTT_META, SAGE_GANTT_ROWS } from '@/services/mocks/sageGantt'
 
 const COMP_LABEL: Record<string, string> = {
   residential: 'Residential',
@@ -34,11 +35,78 @@ const TOWNSHIP_GANTT = [
   { id: 'club', label: 'Club House', color: '#059669', start: 5, end: 6 },
 ]
 
+function SageStageMatrix() {
+  return (
+    <Panel
+      title="Stage matrix · Sage packages"
+      accent="indigo"
+      action={
+        <span className="text-[10px] font-medium text-slate-400">
+          From construction Gantt Excel · overall ~{SAGE_GANTT_META.overallProgress}%
+        </span>
+      }
+      bodyClassName="overflow-auto p-0"
+    >
+      <table className="w-full min-w-[640px] border-collapse text-left text-[11px]">
+        <thead>
+          <tr className="border-b border-slate-200 bg-slate-50/90 text-[10px] font-bold tracking-wide text-slate-500 uppercase">
+            <th className="px-3 py-2.5">Package</th>
+            <th className="px-3 py-2.5">Window</th>
+            <th className="px-3 py-2.5">Actual %</th>
+            <th className="px-3 py-2.5">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {SAGE_GANTT_ROWS.map((row) => {
+            const status =
+              row.progress >= 95
+                ? 'Completed'
+                : row.progress >= 50
+                  ? 'In progress'
+                  : row.progress > 0
+                    ? 'Early / lagging'
+                    : 'Not started'
+            return (
+              <tr key={row.id} className="border-b border-slate-100 align-top">
+                <td className="px-3 py-2.5 font-display text-xs font-bold text-slate-800">
+                  {row.label}
+                </td>
+                <td className="px-3 py-2.5 tabular-nums text-slate-600">
+                  {row.startIso} → {row.endIso}
+                </td>
+                <td className="px-3 py-2.5 font-semibold tabular-nums text-slate-800">
+                  {row.progress}%
+                </td>
+                <td
+                  className={cn(
+                    'px-3 py-2.5 font-semibold',
+                    row.progress >= 95
+                      ? 'text-emerald-700'
+                      : row.progress >= 50
+                        ? 'text-sky-700'
+                        : 'text-amber-800',
+                  )}
+                >
+                  {status}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </Panel>
+  )
+}
+
 export function StageMatrixPanel() {
   const project = useAppStore((s) => s.project)
   const missions = useAppStore((s) => s.missions)
   const activeMissionIndex = useAppStore((s) => s.activeMissionIndex)
   const currentStage = missions[activeMissionIndex]?.constructionStage ?? 6
+
+  if (project?.id === 'prj_sage_repose') {
+    return <SageStageMatrix />
+  }
 
   if (project?.type === 'mall') {
     return (
@@ -185,9 +253,74 @@ export function StageMatrixPanel() {
   )
 }
 
-/** Simple component Gantt across stages. */
+function SageGanttPanel() {
+  return (
+    <Panel
+      title="Schedule · Sage construction Gantt"
+      accent="gold"
+      action={
+        <span className="text-[10px] font-medium text-slate-400">
+          {SAGE_GANTT_META.asOfLabel} · overall ~{SAGE_GANTT_META.overallProgress}%
+        </span>
+      }
+      bodyClassName="flex max-h-[420px] flex-col gap-2 overflow-auto p-3"
+    >
+      <div className="relative mb-1 ml-[8.5rem] h-4">
+        {SAGE_GANTT_META.yearMarks.map((m) => (
+          <span
+            key={m.label}
+            className="absolute top-0 -translate-x-1/2 text-[9px] font-bold tracking-wide text-slate-400 uppercase"
+            style={{ left: `${m.pct}%` }}
+          >
+            {m.label}
+          </span>
+        ))}
+      </div>
+      {SAGE_GANTT_ROWS.map((row) => (
+        <div key={row.id} className="flex items-center gap-2">
+          <div
+            className="w-[8.25rem] shrink-0 truncate text-[11px] font-semibold text-slate-700"
+            title={row.label}
+          >
+            {row.label}
+          </div>
+          <div className="relative h-7 flex-1 rounded-md bg-slate-100/80">
+            <div
+              className="absolute top-1 bottom-1 overflow-hidden rounded-md"
+              style={{
+                left: `${row.startPct}%`,
+                width: `${row.widthPct}%`,
+                background: `linear-gradient(90deg, ${row.color}, ${row.color}99)`,
+              }}
+              title={`${row.startIso} → ${row.endIso} · ${row.progress}%`}
+            >
+              <div
+                className="h-full bg-white/35"
+                style={{ width: `${Math.min(100, row.progress)}%` }}
+              />
+            </div>
+            <span className="pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-[9px] font-bold tabular-nums text-slate-600">
+              {row.progress}%
+            </span>
+          </div>
+        </div>
+      ))}
+      <p className="pt-1 text-[10px] leading-relaxed text-slate-500">
+        Timeline {SAGE_GANTT_META.projectStart} → {SAGE_GANTT_META.projectEnd}. Bar length =
+        planned window; lighter fill ≈ actual % from Excel.
+      </p>
+    </Panel>
+  )
+}
+
+/** Simple component Gantt across stages (demo sites) or Sage Excel Gantt. */
 export function StageGanttPanel() {
   const project = useAppStore((s) => s.project)
+
+  if (project?.id === 'prj_sage_repose') {
+    return <SageGanttPanel />
+  }
+
   const rows =
     project?.type === 'mall'
       ? MALL_GANTT
@@ -197,7 +330,8 @@ export function StageGanttPanel() {
   const colCount = 6
   const missions = useAppStore((s) => s.missions)
   const activeMissionIndex = useAppStore((s) => s.activeMissionIndex)
-  const currentStage = missions[activeMissionIndex]?.constructionStage ?? Math.min(6, activeMissionIndex + 1)
+  const currentStage =
+    missions[activeMissionIndex]?.constructionStage ?? Math.min(6, activeMissionIndex + 1)
 
   return (
     <Panel

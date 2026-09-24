@@ -26,6 +26,7 @@ import {
   zones as gfZones,
 } from '@/services/mocks/pilotData'
 import { buildFloorComparisons } from '@/shared/lib/floorProgress'
+import { sageBundle, sageProject } from '@/services/mocks/sageSite'
 
 export type SiteBundle = {
   project: Project
@@ -45,7 +46,7 @@ export const builder: Builder = {
   id: 'bld_horizon',
   name: 'Horizon Developers Pvt. Ltd.',
   region: 'Pune · Mumbai corridor',
-  siteCount: 3,
+  siteCount: 4,
 }
 
 const riversideProject: Project = {
@@ -1005,10 +1006,12 @@ const bundles: Record<string, SiteBundle> = {
   [greenfieldProject.id]: greenfieldBundle,
   [riversideProject.id]: riversideBundle,
   [lakeviewProject.id]: lakeviewBundle,
+  [sageProject.id]: sageBundle as SiteBundle,
 }
 
 export const portfolioProjects: Project[] = [
   greenfieldProject,
+  sageProject,
   riversideProject,
   lakeviewProject,
 ]

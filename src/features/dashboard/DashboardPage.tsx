@@ -12,6 +12,7 @@ import { StageGanttPanel } from '@/features/schedule/StagePanels'
 import { ComparisonPanel } from '@/features/comparison/ComparisonPanel'
 import { SitePrepDemPanel } from '@/features/comparison/SitePrepDemPanel'
 import { SiteLayoutPdfPanel } from '@/features/site-plan/SiteLayoutPdfPanel'
+import { SiteLayoutDxfPanel } from '@/features/site-plan/SiteLayoutDxfPanel'
 import { InsightsPanel } from '@/features/insights/InsightsPanel'
 import { VolumePanel } from '@/features/volume/VolumePanel'
 import { ModelComparePanel } from '@/features/model3d/ModelComparePanel'
@@ -58,6 +59,9 @@ function HomeTab() {
 }
 
 function SitePreparationTab() {
+  const projectId = useAppStore((s) => s.project?.id)
+  const isSage = projectId === 'prj_sage_repose'
+
   return (
     <div className="flex flex-col gap-5">
       <div className="grid gap-5 xl:grid-cols-12 xl:items-stretch">
@@ -68,8 +72,8 @@ function SitePreparationTab() {
           <VolumePanel />
         </div>
       </div>
-      <div className="min-h-[560px] [&>*]:min-h-[560px]">
-        <SiteLayoutPdfPanel />
+      <div className="min-h-[min(72vh,780px)] [&>*]:min-h-[min(72vh,780px)]">
+        {isSage ? <SiteLayoutDxfPanel /> : <SiteLayoutPdfPanel />}
       </div>
     </div>
   )

@@ -5,6 +5,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { cn } from '@/shared/lib/utils'
 import { getOrFetchModelBuffer } from '@/features/model3d/model3dRemoteCache'
+import { getOrConvertSkpToGlb } from '@/features/model3d/skpToGlb'
 import { countMeshes, mergeMeshesByMaterial } from '@/features/model3d/mergeSiteMeshes'
 
 const HEAVY_BYTES = 45 * 1024 * 1024
@@ -78,7 +79,13 @@ function disposeObject3D(root: THREE.Object3D) {
 }
 
 type SiteModelCanvasProps = {
+  /** Drive / static GLB URL — existing path, unchanged. */
   modelUrl?: string | null
+  /**
+   * Optional SketchUp (.skp) URL. When set (and no modelUrl), loads via openskp → GLB
+   * without touching the Drive GLB pipeline.
+   */
+  skpUrl?: string | null
   blank?: boolean
   label?: string
   autoRotate?: boolean
@@ -100,6 +107,7 @@ type SiteModelCanvasProps = {
  */
 export function SiteModelCanvas({
   modelUrl,
+  skpUrl = null,
   blank = false,
   label = 'model',
   autoRotate = false,
@@ -114,6 +122,7 @@ export function SiteModelCanvas({
   const [loading, setLoading] = useState(!blank)
   const [optimizing, setOptimizing] = useState(false)
   const [progress, setProgress] = useState<number | null>(null)
+  const [loadHint, setLoadHint] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const autoRotateRef = useRef(autoRotate)
@@ -332,16 +341,19 @@ export function SiteModelCanvas({
 
     void (async () => {
       try {
-        if (blank || !modelUrl) {
+        const useSkp = Boolean(skpUrl) && !modelUrl
+        if (blank || (!modelUrl && !skpUrl)) {
           setLoading(true)
+          setLoadHint(null)
           buildBlank()
           return
         }
 
         setLoading(true)
+        setLoadHint(useSkp ? 'Preparing SketchUp…' : null)
         scene.background = new THREE.Color('#f3f4f6')
 
-        const cacheKey = `${modelUrl}|p`
+        const cacheKey = `${useSkp ? `skp:${skpUrl}` : modelUrl}|p`
 
         // Shared template cache — always clone into this canvas (safe for dual compare panes)
         if (!isolateScene) {
@@ -351,13 +363,23 @@ export function SiteModelCanvas({
             heavyRef.current = template.userData.heavy === true
             syncSizeRef.current()
             setLoading(false)
+            setLoadHint(null)
             return
           }
         }
 
-        const buf = await getOrFetchModelBuffer(modelUrl, (pct) => {
-          if (!cancelled) setProgress(pct)
-        })
+        const buf = useSkp
+          ? await getOrConvertSkpToGlb(skpUrl!, (p) => {
+              if (cancelled) return
+              setLoadHint(p.detail ?? p.phase)
+              setProgress(p.pct)
+            })
+          : await getOrFetchModelBuffer(modelUrl!, (pct) => {
+              if (!cancelled) {
+                setLoadHint(null)
+                setProgress(pct)
+              }
+            })
         if (cancelled) return
 
         // quality = sharp DPR for compare; auto still drops DPR slightly on huge files
@@ -368,6 +390,7 @@ export function SiteModelCanvas({
         renderer.toneMappingExposure = heavyRef.current ? 1.25 : 1.35
         renderer.sortObjects = !heavyRef.current
         syncSizeRef.current()
+        setLoadHint(useSkp ? 'Loading converted model…' : null)
 
         await new Promise<void>((resolve, reject) => {
           new GLTFLoader().parse(
@@ -427,6 +450,7 @@ export function SiteModelCanvas({
                     invalidateRef.current()
                   })
                   setLoading(false)
+                  setLoadHint(null)
                   resolve()
                 } catch (err) {
                   setOptimizing(false)
@@ -442,6 +466,7 @@ export function SiteModelCanvas({
           setError(e instanceof Error ? e.message : 'Failed to load model')
           setLoading(false)
           setOptimizing(false)
+          setLoadHint(null)
         }
       }
     })()
@@ -449,7 +474,7 @@ export function SiteModelCanvas({
     return () => {
       cancelled = true
     }
-  }, [glReady, modelUrl, blank, performance, isolateScene])
+  }, [glReady, modelUrl, skpUrl, blank, performance, isolateScene])
 
   return (
     <div className={cn('absolute inset-0 h-full w-full min-h-[280px]', className)}>
@@ -461,9 +486,11 @@ export function SiteModelCanvas({
             <div className="mt-1 text-[10px] font-medium text-slate-400">
               {optimizing
                 ? 'Merging meshes for smooth orbit'
-                : progress != null
-                  ? `${progress}%`
-                  : 'Preparing view…'}
+                : loadHint
+                  ? loadHint
+                  : progress != null
+                    ? `${progress}%`
+                    : 'Preparing view…'}
             </div>
           </div>
         </div>
@@ -472,12 +499,16 @@ export function SiteModelCanvas({
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#f3f4f6] p-4">
           <div className="max-w-md rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs text-rose-700 shadow">
             <div className="font-semibold">Could not load 3D model</div>
-            <div className="mt-1 text-[11px] text-rose-600/90">Please try again in a moment.</div>
+            <div className="mt-1 text-[11px] text-rose-600/90">{error}</div>
           </div>
         </div>
       )}
       <div className="pointer-events-none absolute right-2 bottom-2 z-10 rounded-md bg-white/90 px-2 py-1 text-[10px] font-semibold text-slate-500 shadow-sm">
-        {blank ? 'Blank site · drag to orbit' : 'Drag to orbit · scroll zoom'}
+        {blank
+          ? 'Blank site · drag to orbit'
+          : skpUrl && !modelUrl
+            ? 'SketchUp · drag to orbit · scroll zoom'
+            : 'Drag to orbit · scroll zoom'}
       </div>
     </div>
   )

@@ -15,6 +15,14 @@ import type {
   Zone,
 } from '@/entities/types'
 import { projectApi } from '@/services/api/projectApi'
+import {
+  excelSourceForProject,
+  loadSiteExcelFromFile,
+  loadSiteExcelFromUrl,
+  synthesizeFloors,
+  synthesizeProgress,
+} from '@/services/excel/loadSiteExcel'
+import type { ParsedPackage, ParsedVillaRow } from '@/services/excel/parseSiteWorkbook'
 import { insightUsesSurveyCompare, resolveInsightWorkspaceTab } from '@/shared/lib/insightRouting'
 import { loadWorkRemarks, saveWorkRemarks } from '@/shared/lib/workRemarks'
 
@@ -31,6 +39,13 @@ interface AppState {
   activeProjectId: string | null
   project: Project | null
   zones: Zone[]
+  /** True when current zones were loaded from an Excel workbook */
+  zonesFromExcel: boolean
+  excelLoadError: string | null
+  /** Villa rows from Sheet2 (North/South packages) — used in progress panel */
+  excelVillas: ParsedVillaRow[]
+  /** Sheet1 packages (lounge / club / roads / landscaping) */
+  excelPackages: ParsedPackage[]
   selectedZoneId: string
   progress: ProgressItem[]
   missions: SurveyMission[]
@@ -63,6 +78,10 @@ interface AppState {
   openProject: (projectId: string) => Promise<void>
   exitToPortfolio: () => void
   selectZone: (id: string) => Promise<void>
+  /** Re-fetch project excelSource URL and replace zones */
+  reloadZonesFromExcel: () => Promise<void>
+  /** User-picked workbook (any project) */
+  importZonesFromExcelFile: (file: File) => Promise<void>
   setMissionIndex: (i: number) => void
   setCompareThenIndex: (i: number) => void
   setCompareNowIndex: (i: number) => void
@@ -82,9 +101,29 @@ interface AppState {
   setWorkRemark: (key: string, text: string) => void
 }
 
+function applyExcelZonesToProject(project: Project, zones: Zone[], asOf?: string): Project {
+  const avg = zones.length
+    ? Math.round(zones.reduce((s, z) => s + z.overallProgress, 0) / zones.length)
+    : project.overallProgress
+  const behind = zones.filter((z) => z.scheduleStatus === 'behind').length
+  return {
+    ...project,
+    zoneCount: zones.length,
+    overallProgress: avg,
+    scheduleStatus: behind > 0 ? 'behind' : project.scheduleStatus,
+    lastSurveyDate: asOf ?? project.lastSurveyDate,
+    headline: `${zones.length} zones from Excel`,
+    remark: asOf ? `Workbook as of ${asOf}` : 'Zones loaded from Excel',
+  }
+}
+
 const emptyWorkspace = {
   project: null as Project | null,
   zones: [] as Zone[],
+  zonesFromExcel: false,
+  excelLoadError: null as string | null,
+  excelVillas: [] as ParsedVillaRow[],
+  excelPackages: [] as ParsedPackage[],
   selectedZoneId: '',
   progress: [] as ProgressItem[],
   missions: [] as SurveyMission[],
@@ -137,7 +176,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   openProject: async (projectId) => {
-    set({ loading: true, ready: false, activeProjectId: projectId })
+    set({ loading: true, ready: false, activeProjectId: projectId, excelLoadError: null })
     const needPortfolio = get().projects.length === 0
     const portfolioPromise = needPortfolio
       ? Promise.all([projectApi.getBuilder(), projectApi.listProjects()])
@@ -159,15 +198,47 @@ export const useAppStore = create<AppState>((set, get) => ({
       const [builder, projects] = portfolio
       set({ builder, projects, portfolioReady: true })
     }
-    const selectedZoneId = zones[0]?.id ?? ''
+
+    let nextProject = project
+    let nextZones = zones
+    let nextVillas: ParsedVillaRow[] = []
+    let nextPackages: ParsedPackage[] = []
+    let zonesFromExcel = false
+    let excelLoadError: string | null = null
+    const excelUrl = project.excelSource ?? excelSourceForProject(projectId)
+    if (excelUrl) {
+      try {
+        const parsed = await loadSiteExcelFromUrl(excelUrl)
+        nextZones = parsed.zones
+        nextVillas = parsed.villas
+        nextPackages = parsed.packages
+        nextProject = applyExcelZonesToProject(project, parsed.zones, parsed.asOf)
+        zonesFromExcel = true
+      } catch (e) {
+        excelLoadError = e instanceof Error ? e.message : 'Failed to load Excel'
+      }
+    }
+
+    const selectedZoneId = nextZones[0]?.id ?? ''
     const last = Math.max(0, missions.length - 1)
-    const [progress, floors] = await Promise.all([
-      projectApi.getProgress(projectId, selectedZoneId),
-      projectApi.getFloorComparisons(projectId, selectedZoneId),
-    ])
+    let progress: ProgressItem[]
+    let floors: FloorComparison[]
+    if (zonesFromExcel && nextZones[0]) {
+      progress = synthesizeProgress(nextZones[0], nextPackages)
+      floors = synthesizeFloors(nextZones[0])
+    } else {
+      ;[progress, floors] = await Promise.all([
+        projectApi.getProgress(projectId, selectedZoneId),
+        projectApi.getFloorComparisons(projectId, selectedZoneId),
+      ])
+    }
     set({
-      project,
-      zones,
+      project: nextProject,
+      zones: nextZones,
+      zonesFromExcel,
+      excelLoadError,
+      excelVillas: nextVillas,
+      excelPackages: nextPackages,
       selectedZoneId,
       progress,
       missions,
@@ -211,11 +282,82 @@ export const useAppStore = create<AppState>((set, get) => ({
     const projectId = get().activeProjectId
     if (!projectId || id === get().selectedZoneId) return
     set({ selectedZoneId: id, loading: true, selectedFloor: null, evidenceItemId: null })
+    if (get().zonesFromExcel) {
+      const zone = get().zones.find((z) => z.id === id)
+      if (zone) {
+        set({
+          progress: synthesizeProgress(zone, get().excelPackages),
+          floors: synthesizeFloors(zone),
+          loading: false,
+        })
+        return
+      }
+    }
     const [progress, floors] = await Promise.all([
       projectApi.getProgress(projectId, id),
       projectApi.getFloorComparisons(projectId, id),
     ])
     set({ progress, floors, loading: false })
+  },
+
+  reloadZonesFromExcel: async () => {
+    const project = get().project
+    const projectId = get().activeProjectId
+    if (!project || !projectId) return
+    const url = project.excelSource ?? excelSourceForProject(projectId)
+    if (!url) {
+      set({ excelLoadError: 'No Excel source configured for this project' })
+      return
+    }
+    set({ loading: true, excelLoadError: null })
+    try {
+      const parsed = await loadSiteExcelFromUrl(url)
+      const nextProject = applyExcelZonesToProject(project, parsed.zones, parsed.asOf)
+      const selectedZoneId = parsed.zones[0]?.id ?? ''
+      set({
+        project: nextProject,
+        zones: parsed.zones,
+        zonesFromExcel: true,
+        excelVillas: parsed.villas,
+        excelPackages: parsed.packages,
+        selectedZoneId,
+        progress: parsed.zones[0] ? synthesizeProgress(parsed.zones[0], parsed.packages) : [],
+        floors: parsed.zones[0] ? synthesizeFloors(parsed.zones[0]) : [],
+        loading: false,
+      })
+    } catch (e) {
+      set({
+        loading: false,
+        excelLoadError: e instanceof Error ? e.message : 'Failed to reload Excel',
+      })
+    }
+  },
+
+  importZonesFromExcelFile: async (file) => {
+    const project = get().project
+    if (!project) return
+    set({ loading: true, excelLoadError: null })
+    try {
+      const parsed = await loadSiteExcelFromFile(file)
+      const nextProject = applyExcelZonesToProject(project, parsed.zones, parsed.asOf)
+      const selectedZoneId = parsed.zones[0]?.id ?? ''
+      set({
+        project: nextProject,
+        zones: parsed.zones,
+        zonesFromExcel: true,
+        excelVillas: parsed.villas,
+        excelPackages: parsed.packages,
+        selectedZoneId,
+        progress: parsed.zones[0] ? synthesizeProgress(parsed.zones[0], parsed.packages) : [],
+        floors: parsed.zones[0] ? synthesizeFloors(parsed.zones[0]) : [],
+        loading: false,
+      })
+    } catch (e) {
+      set({
+        loading: false,
+        excelLoadError: e instanceof Error ? e.message : 'Failed to import Excel',
+      })
+    }
   },
 
   setMissionIndex: (i) => {
@@ -268,7 +410,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ comparisonMode: insight.comparisonMode, sliderPosition: 42 })
     }
     if (insight.zoneId && insight.zoneId !== get().selectedZoneId) {
-      await get().selectZone(insight.zoneId)
+      const exists = get().zones.some((z) => z.id === insight.zoneId)
+      if (exists) await get().selectZone(insight.zoneId)
     }
     window.setTimeout(() => set({ pulseCriticalPath: false }), 3200)
   },

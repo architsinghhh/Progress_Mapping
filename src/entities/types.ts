@@ -1,6 +1,6 @@
 /** Domain contracts — map 1:1 to future API / DB schemas */
 
-export type ScheduleStatus = 'on_track' | 'ahead' | 'behind' | 'completed'
+export type ScheduleStatus = 'on_track' | 'ahead' | 'behind' | 'completed' | 'not_started'
 
 export type PhaseKey =
   | 'excavation'
@@ -54,6 +54,11 @@ export interface Project {
   coverTone: 'sky' | 'ember' | 'forest' | 'slate'
   /** True only when this site has real Drive GLB / ortho capture (Greenfield in the demo). */
   hasSiteCapture: boolean
+  /**
+   * Optional public URL to a site-status workbook (Sheet2 = home zones).
+   * When set, opening the project loads zones from Excel instead of hardcoded mocks.
+   */
+  excelSource?: string
 }
 
 

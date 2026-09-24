@@ -1,4 +1,6 @@
+import { useRef } from 'react'
 import { motion } from 'framer-motion'
+import { FileSpreadsheet, RefreshCw, Upload } from 'lucide-react'
 import type { Zone } from '@/entities/types'
 import { useAppStore } from '@/store/appStore'
 import { ScheduleLegend } from '@/shared/ui/ScheduleLegend'
@@ -71,6 +73,12 @@ export function ZoneProgressStrip() {
   const whatIfActive = useAppStore((s) => s.whatIfActive)
   const pulseCriticalPath = useAppStore((s) => s.pulseCriticalPath)
   const workRemarks = useAppStore((s) => s.workRemarks)
+  const project = useAppStore((s) => s.project)
+  const zonesFromExcel = useAppStore((s) => s.zonesFromExcel)
+  const excelLoadError = useAppStore((s) => s.excelLoadError)
+  const reloadZonesFromExcel = useAppStore((s) => s.reloadZonesFromExcel)
+  const importZonesFromExcelFile = useAppStore((s) => s.importZonesFromExcelFile)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const factor = missionFactor(activeMissionIndex, missions.length)
   const scaled = zones.map((z) => {
@@ -93,10 +101,58 @@ export function ZoneProgressStrip() {
     setWorkspaceTab('progress')
   }
 
+  const canExcel = Boolean(project)
+
   return (
     <div className="space-y-2">
-      <ScheduleLegend />
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <ScheduleLegend />
+        {canExcel ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {zonesFromExcel ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                <FileSpreadsheet className="size-3" />
+                From Excel
+              </span>
+            ) : null}
+            {project?.excelSource ? (
+              <button
+                type="button"
+                className="pdf-viewer__icon-btn inline-flex items-center gap-1 text-[10px] font-semibold"
+                title="Reload zones from project workbook"
+                onClick={() => void reloadZonesFromExcel()}
+              >
+                <RefreshCw className="size-3.5" />
+                Reload
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="pdf-viewer__icon-btn inline-flex items-center gap-1 text-[10px] font-semibold"
+              title="Import a Sheet2 workbook"
+              onClick={() => fileRef.current?.click()}
+            >
+              <Upload className="size-3.5" />
+              Import Excel
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                e.target.value = ''
+                if (f) void importZonesFromExcelFile(f)
+              }}
+            />
+          </div>
+        ) : null}
+      </div>
+      {excelLoadError ? (
+        <p className="text-[11px] font-medium text-rose-600">{excelLoadError}</p>
+      ) : null}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {scaled.map((zone, i) => {
           const active = zone.id === selectedZoneId
           const pulse = pulseCriticalPath && zone.scheduleStatus === 'behind'
@@ -133,6 +189,7 @@ export function ZoneProgressStrip() {
                       zone.scheduleStatus === 'on_track' && 'bg-blue-50 text-blue-700',
                       zone.scheduleStatus === 'ahead' && 'bg-emerald-50 text-emerald-700',
                       zone.scheduleStatus === 'behind' && 'bg-red-50 text-red-700',
+                      zone.scheduleStatus === 'not_started' && 'bg-slate-50 text-slate-500',
                     )}
                   >
                     {statusLabel(zone.scheduleStatus)}

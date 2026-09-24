@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>24-month hosting cost mix — Cloudflare vs AWS</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --card: #1a222c;
+      --text: #e8eef4;
+      --muted: #94a3b8;
+      --line: #2a3544;
+      --accent: #38bdf8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+      padding: 32px 24px 48px;
+    }
+    h1 { font-size: 1.5rem; margin: 0 0 8px; font-weight: 650; }
+    h2 { font-size: 1.1rem; margin: 0 0 4px; font-weight: 600; }
+    .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 20px; max-width: 52rem; }
+    .note {
+      background: #2a2118;
+      border: 1px solid #5c4a2e;
+      color: #fcd9a0;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      margin-bottom: 28px;
+      max-width: 52rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+      max-width: 960px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 20px;
+    }
+    .costliest {
+      display: inline-block;
+      background: #3b2418;
+      color: #fdba74;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+    }
+    .chart-wrap {
+      display: flex;
+      justify-content: center;
+      margin: 12px 0 16px;
+    }
+    svg { max-width: 100%; height: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--line);
+    }
+    th { color: var(--muted); font-weight: 500; }
+    tr.hot td { color: #fda4a4; font-weight: 600; }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 14px;
+      margin: 8px 0 14px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+    footer {
+      margin-top: 28px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      max-width: 52rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>24-month hosting cost mix</h1>
+  <p class="sub">
+    Indicative estimate (not a fixed quote). Avg 300&nbsp;MB models · 6 sites · 144 surveys · ~112&nbsp;GB peak.
+    Public list rates · Aug 2026.
+  </p>
+  <div class="note">
+    <strong>Costliest on both stacks:</strong> Login + database
+    (Cloudflare ≈ 90% Supabase · AWS ≈ 63% RDS) — not media storage at this size.
+  </div>
+
+  <div class="grid">
+    <section class="card" id="cf">
+      <div class="costliest">Costliest: Login + DB (Supabase) ~90%</div>
+      <h2>Cloudflare stack</h2>
+      <p class="sub" style="margin-bottom:8px">Pages + R2 + Supabase · calc ~$670 · safe quote ~$700</p>
+      <div class="legend" id="cf-legend"></div>
+      <div class="chart-wrap" id="cf-chart"></div>
+      <table>
+        <thead>
+          <tr><th>Feature</th><th>USD (24 mo)</th><th>Share</th></tr>
+        </thead>
+        <tbody id="cf-rows"></tbody>
+      </table>
+    </section>
+
+    <section class="card" id="aws">
+      <div class="costliest">Costliest: Login + DB (RDS) ~63%</div>
+      <h2>AWS stack</h2>
+      <p class="sub" style="margin-bottom:8px">SPA + S3 + CloudFront + Cognito + RDS · mid ~$764 · safe quote ~$800</p>
+      <div class="legend" id="aws-legend"></div>
+      <div class="chart-wrap" id="aws-chart"></div>
+      <table>
+        <thead>
+          <tr><th>Feature</th><th>USD (24 mo)</th><th>Share</th></tr>
+        </thead>
+        <tbody id="aws-rows"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <footer>
+    Path: <code>docs/hosting-cost-pies.html</code> inside Progress Mapping.
+    Open in any browser. Excludes app build, surveys, processing, GST.
+  </footer>
+
+  <script>
+    const COLORS = ["#f87171", "#94a3b8", "#38bdf8", "#4ade80", "#fbbf24"];
+
+    const cf = [
+      { label: "Login + DB (Supabase Pro)", value: 600 },
+      { label: "Domain + ops buffer", value: 50 },
+      { label: "Media storage (R2)", value: 18 },
+      { label: "App host (Pages)", value: 2 },
+    ];
+
+    const aws = [
+      { label: "Login + DB (RDS + Cognito)", value: 480 },
+      { label: "App host (Amplify / SPA CDN)", value: 120 },
+      { label: "API + domain + buffer", value: 98 },
+      { label: "Media storage (S3)", value: 35 },
+      { label: "Downloads / CDN (CloudFront)", value: 31 },
+    ];
+
+    function pie(data, size = 220) {
+      const total = data.reduce((s, d) => s + d.value, 0);
+      const r = size / 2;
+      const ir = r * 0.55;
+      let a0 = -Math.PI / 2;
+      const slices = data.map((d, i) => {
+        const a1 = a0 + (d.value / total) * Math.PI * 2;
+        const large = a1 - a0 > Math.PI ? 1 : 0;
+        const x0 = r + r * Math.cos(a0);
+        const y0 = r + r * Math.sin(a0);
+        const x1 = r + r * Math.cos(a1);
+        const y1 = r + r * Math.sin(a1);
+        const ix0 = r + ir * Math.cos(a0);
+        const iy0 = r + ir * Math.sin(a0);
+        const ix1 = r + ir * Math.cos(a1);
+        const iy1 = r + ir * Math.sin(a1);
+        const path = [
+          `M ${x0} ${y0}`,
+          `A ${r} ${r} 0 ${large} 1 ${x1} ${y1}`,
+          `L ${ix1} ${iy1}`,
+          `A ${ir} ${ir} 0 ${large} 0 ${ix0} ${iy0}`,
+          "Z",
+        ].join(" ");
+        a0 = a1;
+        return { path, color: COLORS[i % COLORS.length], d };
+      });
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("width", size);
+      svg.setAttribute("height", size);
+      svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
+      slices.forEach((s) => {
+        const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        p.setAttribute("d", s.path);
+        p.setAttribute("fill", s.color);
+        p.setAttribute("title", `${s.d.label}: $${s.d.value}`);
+        svg.appendChild(p);
+      });
+      const t1 = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      t1.setAttribute("x", r);
+      t1.setAttribute("y", r - 4);
+      t1.setAttribute("text-anchor", "middle");
+      t1.setAttribute("fill", "#e8eef4");
+      t1.setAttribute("font-size", "18");
+      t1.setAttribute("font-weight", "700");
+      t1.textContent = `$${total}`;
+      const t2 = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      t2.setAttribute("x", r);
+      t2.setAttribute("y", r + 16);
+      t2.setAttribute("text-anchor", "middle");
+      t2.setAttribute("fill", "#94a3b8");
+      t2.setAttribute("font-size", "11");
+      t2.textContent = "24 months";
+      svg.appendChild(t1);
+      svg.appendChild(t2);
+      return { svg, total };
+    }
+
+    function fill(idChart, idLegend, idRows, data) {
+      const { svg, total } = pie(data);
+      document.getElementById(idChart).appendChild(svg);
+      document.getElementById(idLegend).innerHTML = data
+        .map(
+          (d, i) =>
+            `<span><i class="swatch" style="background:${COLORS[i]}"></i>${d.label}</span>`,
+        )
+        .join("");
+      document.getElementById(idRows).innerHTML = data
+        .map((d, i) => {
+          const share = Math.round((d.value / total) * 100);
+          const hot = i === 0 ? ' class="hot"' : "";
+          return `<tr${hot}><td>${d.label}</td><td>$${d.value}</td><td>${share}%</td></tr>`;
+        })
+        .join("");
+    }
+
+    fill("cf-chart", "cf-legend", "cf-rows", cf);
+    fill("aws-chart", "aws-legend", "aws-rows", aws);
+  </script>
+</body>
+</html>
