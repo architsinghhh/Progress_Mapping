@@ -64,6 +64,17 @@ export function scaleZoneForMission(zone: Zone, factor: number): Zone {
     Math.min(zone.floorsPlanned, Math.round(zone.floorsComplete * ease)),
   )
 
+  // Excel-backed zones (Sheet1/Sheet2): keep workbook schedule status.
+  // Greenfield-style plan-curve scrub would rewrite "behind" → "on track" and hide real slips.
+  if (zone.id.startsWith('xl_')) {
+    return {
+      ...zone,
+      overallProgress,
+      floorsComplete,
+      scheduleStatus: zone.scheduleStatus,
+    }
+  }
+
   // Expected plan curve for this scrub moment (slightly ahead of eased progress baseline)
   const plannedAtMission = Math.round(zone.overallProgress * Math.min(1, ease + 0.06))
   let scheduleStatus: ScheduleStatus = zone.scheduleStatus

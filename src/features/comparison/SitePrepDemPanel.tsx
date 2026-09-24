@@ -5,7 +5,7 @@ import { formatMonthYear, cn } from '@/shared/lib/utils'
 import { demUrlForMission } from '@/features/comparison/demSource'
 import { modelStageForMission } from '@/entities/constructionStages'
 
-/** Site Preparation — DEM elevation still for the active survey mission. */
+/** Site Preparation — single DEM elevation still for the active survey mission. */
 export function SitePrepDemPanel() {
   const project = useAppStore((s) => s.project)
   const missions = useAppStore((s) => s.missions)
@@ -15,12 +15,8 @@ export function SitePrepDemPanel() {
 
   const mission = missions[activeMissionIndex]
   const currentStage = modelStageForMission(activeMissionIndex)
-  const baselineStage = modelStageForMission(0)
   const demSrc = hasCapture
     ? demUrlForMission({ missionIndex: activeMissionIndex, modelStageId: currentStage })
-    : null
-  const baselineSrc = hasCapture
-    ? demUrlForMission({ missionIndex: 0, modelStageId: baselineStage })
     : null
 
   return (
@@ -48,43 +44,25 @@ export function SitePrepDemPanel() {
       </div>
 
       <div className="siteprep-dem">
-        <div className="siteprep-dem__stage">
-          <div className="siteprep-dem__tag">Current · {mission?.label ?? 'Now'}</div>
-          {demSrc ? (
-            <img
-              src={demSrc}
-              alt={`DEM ${mission?.label ?? ''}`}
-              className="siteprep-dem__img"
-              loading="lazy"
-              decoding="async"
-            />
-          ) : (
-            <DemEmpty hasCapture={hasCapture} />
-          )}
-        </div>
-
-        <div className="siteprep-dem__stage siteprep-dem__stage--base">
-          <div className="siteprep-dem__tag">Baseline · Initial</div>
-          {baselineSrc ? (
-            <img
-              src={baselineSrc}
-              alt="Baseline DEM"
-              className="siteprep-dem__img"
-              loading="lazy"
-              decoding="async"
-            />
-          ) : (
-            <DemEmpty hasCapture={hasCapture} compact />
-          )}
-        </div>
+        {demSrc ? (
+          <img
+            src={demSrc}
+            alt={`DEM ${mission?.label ?? ''}`}
+            className="siteprep-dem__img"
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <DemEmpty hasCapture={hasCapture} />
+        )}
       </div>
     </Panel>
   )
 }
 
-function DemEmpty({ hasCapture, compact }: { hasCapture: boolean; compact?: boolean }) {
+function DemEmpty({ hasCapture }: { hasCapture: boolean }) {
   return (
-    <div className={cn('siteprep-dem__empty', compact && 'is-compact')}>
+    <div className={cn('siteprep-dem__empty')}>
       <Mountain className="size-5 opacity-50" />
       <p>{hasCapture ? 'DEM still pending for this stage' : 'Demo site — DEM capture not linked'}</p>
     </div>

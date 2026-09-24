@@ -367,10 +367,17 @@ export function parseSiteWorkbook(rows: unknown[][], sheetName: string): SiteWor
     if (sectionRows?.length) {
       pct = Math.round(sectionRows.reduce((s, v) => s + v.actualPct, 0) / sectionRows.length)
       const delayed = sectionRows.filter((v) => /delay/i.test(v.status)).length
+      const lagging = sectionRows.filter(
+        (v) =>
+          v.committedPct != null &&
+          v.actualPct < v.committedPct - 5,
+      ).length
       const notStarted = sectionRows.filter((v) => /not\s*started/i.test(v.status)).length
-      status = delayed > sectionRows.length / 3 ? 'behind' : statusFromLabel('', pct)
+      // Any delayed / lagging plot marks the zone behind — don't wait for 1/3 of the wing.
+      if (delayed > 0 || lagging > 0) status = 'behind'
+      else status = statusFromLabel('', pct)
       type = `Villas · ${sectionRows.length} plots`
-      remark = `Excel · avg ${pct}% · ${delayed} delayed · ${notStarted} not started`
+      remark = `Excel · avg ${pct}% · ${delayed} delayed · ${lagging} lagging plan · ${notStarted} not started`
     } else if (/lounge|club|road|landscape|green/i.test(name)) {
       type = /road/i.test(name)
         ? 'Infrastructure'
